@@ -183,15 +183,7 @@
         <div id="admin-tab-products" class="admin-tab-panel">
           <div class="admin-card ai-card">
             <h3>✨ Gerar produto com IA</h3>
-            <p class="text-muted admin-hint">Descreva a ideia do item. A IA preenche nome, descrição, preço, categoria e dias de entrega. Você revisa e salva.</p>
-            <div class="form-group">
-              <label>Chave da API Gemini (salva só neste navegador)</label>
-              <div class="ai-key-row">
-                <input type="password" id="ai-api-key" placeholder="AIza..." autocomplete="off"/>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="saveAiApiKey()">Salvar chave</button>
-              </div>
-              <p class="ai-key-help">Pegue grátis em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a></p>
-            </div>
+            <p class="text-muted admin-hint">Descreva a ideia. <strong>Local</strong> = sem limite. <strong>Firebase AI</strong> = Gemini pelo seu projeto (AI Logic), sem colar chave no site.</p>
             <div class="form-group">
               <label>Ideia do item</label>
               <textarea id="ai-prompt" rows="2" placeholder="Ex: um bilhete VIP da Liga com acesso aos bastidores, tom premium e misterioso"></textarea>
@@ -224,10 +216,10 @@
             </div>
             <div class="ai-actions">
               <button type="button" class="btn btn-primary" id="btn-local-generate" onclick="generateProductLocal()">Gerar local</button>
-              <button type="button" class="btn btn-ghost" id="btn-ai-generate" onclick="generateProductWithAI()">Gerar com IA (Gemini)</button>
+              <button type="button" class="btn btn-ghost" id="btn-ai-generate" onclick="generateProductWithFirebaseAI()">Gerar com IA (Firebase)</button>
             </div>
             <p class="ai-status" id="ai-status"></p>
-            <p class="text-muted admin-hint" style="margin-top:8px">Local = sem limite, funciona offline. IA = Gemini (precisa de cota/chave).</p>
+            <p class="text-muted admin-hint" style="margin-top:8px">Firebase AI Logic precisa estar ativado no console do projeto mercado-smith.</p>
           </div>
 
           <div class="admin-split">
@@ -364,5 +356,6 @@
   <script src="./js/features/profile/profile.js"></script>
   <script src="./js/features/admin/admin.js"></script>
   <script src="./js/app/start.js"></script>
+  <script type="module" src="./js/features/admin/firebase-ai.js"></script>
 </body>
 </html>
