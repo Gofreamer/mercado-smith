@@ -1239,9 +1239,11 @@ async function adminViewPlayerInventory(uid) {
         ${inv.length === 0 ? '<div class="empty-state">Inventário vazio.</div>' : `
           <div class="admin-table-wrap">
             <table class="admin-table">
-              <thead><tr><th>Item</th><th>Preço pago</th><th>Status</th><th>Comprado</th></tr></thead>
+              <thead><tr><th>Item</th><th>Preço pago</th><th>Status</th><th>Comprado</th><th></th></tr></thead>
               <tbody>
-                ${inv.map(item => `
+                ${inv.map(item => {
+                  const safeName = String(item.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                  return `
                   <tr>
                     <td>
                       <div class="admin-prod-name">${escapeHTML(item.name || '—')}${item.illegal ? ' <span class="tag-illegal">Subsolo</span>' : ''}</div>
@@ -1250,8 +1252,11 @@ async function adminViewPlayerInventory(uid) {
                     <td class="mono">${formatMoney(item.price)}</td>
                     <td><span class="status-pill ${statusClass(item.status || 'delivered')}">${formatDeliveryLabel(item)}</span></td>
                     <td style="font-size:12px">${item.boughtAt ? formatDateTime(item.boughtAt) : '—'}</td>
-                  </tr>
-                `).join('')}
+                    <td class="admin-actions-cell">
+                      <button class="btn btn-ghost btn-sm text-danger" onclick="adminRemovePlayerInventoryItem('${uid}', '${item.id}', '${safeName}')">Remover</button>
+                    </td>
+                  </tr>`;
+                }).join('')}
               </tbody>
             </table>
           </div>
@@ -1262,6 +1267,29 @@ async function adminViewPlayerInventory(uid) {
   } catch (e) {
     console.error(e);
     box.innerHTML = '<div class="empty-state">Erro ao carregar inventário (rules?).</div>';
+  }
+}
+
+async function adminRemovePlayerInventoryItem(uid, invKey, itemName) {
+  const label = itemName || 'este item';
+  if (!confirm('Remover "' + label + '" do inventário deste jogador?\nEssa ação não devolve saldo automaticamente.')) return;
+
+  try {
+    await db.ref('users/' + uid + '/inventory/' + invKey).remove();
+    if (typeof pushAdminLog === 'function') {
+      pushAdminLog({
+        type: 'inventory_remove',
+        userId: uid,
+        invKey,
+        productName: itemName || ''
+      });
+    }
+    showToast('Item removido do inventário.');
+    await adminViewPlayerInventory(uid);
+    if (typeof renderAdminPlayers === 'function') renderAdminPlayers();
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao remover item (rules do Firebase?).', 'error');
   }
 }
 
