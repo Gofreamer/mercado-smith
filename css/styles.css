@@ -3142,3 +3142,15 @@ body.theme-blackmarket .brand {
   margin-top: 2px;
   display: block;
 }
+
+.admin-id-code {
+  display: block;
+  font-size: 10px;
+  font-family: ui-monospace, monospace;
+  color: var(--text-muted);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 4px;
+}

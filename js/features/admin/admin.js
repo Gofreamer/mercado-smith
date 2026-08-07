@@ -27,11 +27,11 @@ function renderAdminProducts() {
         <thead>
           <tr>
             <th>Produto</th>
+            <th>ID</th>
             <th>Preço</th>
             <th>Estoque</th>
             <th>Entrega</th>
             <th>Categoria</th>
-            <th>Adicionado</th>
             <th></th>
           </tr>
         </thead>
@@ -39,17 +39,21 @@ function renderAdminProducts() {
           ${products.map(p => {
             const stock = (p.stock === null || p.stock === undefined) ? '∞' : p.stock;
             const delivery = p.deliveryDays > 0 ? `${p.deliveryDays}d` : 'Imediata';
+            const safeId = String(p.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
             return `
               <tr>
                 <td>
                   <div class="admin-prod-name">${escapeHTML(p.name)}</div>
                   <div class="admin-prod-desc">${escapeHTML((p.description || '').slice(0, 60))}</div>
                 </td>
+                <td>
+                  <code class="admin-id-code" title="${escapeHTML(p.id)}">${escapeHTML(p.id)}</code>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="copyProductId('${safeId}')" title="Copiar ID">Copiar</button>
+                </td>
                 <td class="mono">${formatMoney(p.price)}</td>
                 <td class="mono">${stock}</td>
                 <td>${delivery}</td>
                 <td>${escapeHTML(CATEGORY_LABELS[p.category] || p.category || '')}</td>
-                <td style="font-size:12px;white-space:nowrap">${p.createdAt ? formatDateTime(p.createdAt) : '—'}</td>
                 <td class="admin-actions-cell">
                   <button class="btn btn-ghost btn-sm" onclick="adminEditProduct('${p.id}')">Editar</button>
                   <button class="btn btn-ghost btn-sm text-danger" onclick="adminDeleteProduct('${p.id}')">Apagar</button>
@@ -61,6 +65,23 @@ function renderAdminProducts() {
       </table>
     </div>
   `;
+}
+
+async function copyProductId(id) {
+  if (!id) return;
+  try {
+    await navigator.clipboard.writeText(id);
+    showToast('ID copiado: ' + id);
+  } catch {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = id;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    showToast('ID copiado: ' + id);
+  }
 }
 
 function adminResetProductForm() {
