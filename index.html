@@ -569,7 +569,7 @@
           <div class="admin-layout">
             <div class="admin-card">
               <h3 id="event-form-title">Novo evento</h3>
-              <p class="text-muted admin-hint">Ex: “Semana Nina Riders”. IDs de produto separados por vírgula (copie do Firebase ou da lista de produtos).</p>
+              <p class="text-muted admin-hint">O switch <strong>Ativo</strong> controla o banner. Datas do RPG são texto livre; relógio real é opcional.</p>
               <div class="admin-card" style="margin-bottom:14px;padding:12px;background:rgba(0,0,0,0.15)">
                 <label class="text-muted" style="font-size:12px">Gerar com Firebase AI (gemini-3.6-flash)</label>
                 <input type="text" id="event-ai-idea" class="search-input" placeholder="Ex: Semana Nina Riders merch e VIP" style="width:100%;margin:6px 0"/>
@@ -617,13 +617,30 @@
                     </select>
                   </div>
                 </div>
+                <div class="form-group">
+                  <label>Agendar pelo relógio real?</label>
+                  <select id="event-use-real">
+                    <option value="false" selected>Não — eu controlo (calendário do RPG)</option>
+                    <option value="true">Sim — liga/desliga sozinho no horário real</option>
+                  </select>
+                </div>
                 <div class="form-row">
                   <div class="form-group">
-                    <label>Início</label>
+                    <label>Início in-world (texto)</label>
+                    <input type="text" id="event-starts-label" placeholder="Ex: 14 de Brumário, Ano 3"/>
+                  </div>
+                  <div class="form-group">
+                    <label>Fim in-world (texto)</label>
+                    <input type="text" id="event-ends-label" placeholder="Ex: 21 de Brumário"/>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Início real (só se agendar)</label>
                     <input type="datetime-local" id="event-starts"/>
                   </div>
                   <div class="form-group">
-                    <label>Fim</label>
+                    <label>Fim real (só se agendar)</label>
                     <input type="datetime-local" id="event-ends"/>
                   </div>
                 </div>

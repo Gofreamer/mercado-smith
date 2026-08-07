@@ -528,11 +528,48 @@ async function adminRespondOffer(offerId, action) {
 
 /* ========== EVENTOS TEMPORÁRIOS ========== */
 
+function parseLocalDateTimeInput(str) {
+  if (!str) return null;
+  const m = String(str).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (m) {
+    return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], 0, 0).getTime();
+  }
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d.getTime();
+}
+
+function toLocalDateTimeInput(ts) {
+  if (!ts) return '';
+  const d = new Date(Number(ts));
+  if (isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function isEventFlagActive(e) {
+  if (e == null) return false;
+  if (e.active === false || e.active === 'false' || e.active === 0) return false;
+  return true; // true, 'true', undefined, null → ativo
+}
+
+function isEventInWindow(e, now = Date.now()) {
+  const start = e.startsAt != null ? Number(e.startsAt) : null;
+  const end = e.endsAt != null ? Number(e.endsAt) : null;
+  if (start && !isNaN(start) && start > now) return false;
+  if (end && !isNaN(end) && end < now) return false;
+  return true;
+}
+
 function getActiveEvents() {
   const now = Date.now();
   return Object.entries(state.events || {})
     .map(([id, e]) => ({ id, ...e }))
-    .filter(e => e.active !== false && (!e.startsAt || e.startsAt <= now) && (!e.endsAt || e.endsAt >= now));
+    .filter(e => {
+      if (!isEventFlagActive(e)) return false;
+      // Só usa relógio real se o mestre marcar useRealSchedule
+      if (e.useRealSchedule) return isEventInWindow(e, now);
+      return true;
+    });
 }
 
 function getActiveEventTagsForProduct(productId) {
@@ -584,7 +621,7 @@ function renderEventBanner() {
       <span class="event-banner-text">${escapeHTML(ev.bannerText || ev.description || ev.name)}</span>
       ${couponBit}
       ${discBit}
-      ${ev.endsAt ? `<span class="event-banner-ends">até ${formatDate(ev.endsAt)}</span>` : ''}
+      ${ev.endsLabel ? `<span class="event-banner-ends">até ${escapeHTML(ev.endsLabel)}</span>` : (ev.useRealSchedule && ev.endsAt ? `<span class="event-banner-ends">até ${formatDate(ev.endsAt)}</span>` : '')}
       ${ev.couponCode ? `<button type="button" class="btn btn-ghost btn-sm" onclick="applyEventCoupon('${escapeHTML(ev.couponCode)}')">Aplicar cupom</button>` : ''}
     </div>
   `;
@@ -607,7 +644,7 @@ function renderAdminEvents() {
     <thead><tr><th>Evento</th><th>Tag</th><th>Período</th><th>Produtos</th><th>Desc.</th><th></th></tr></thead>
     <tbody>
       ${list.map(e => {
-        const live = e.active !== false && (!e.startsAt || e.startsAt <= now) && (!e.endsAt || e.endsAt >= now);
+        const live = isEventFlagActive(e) && (!e.useRealSchedule || isEventInWindow(e, now));
         return `
           <tr>
             <td>
@@ -615,10 +652,15 @@ function renderAdminEvents() {
               <div class="admin-prod-desc">${live ? '● Ao vivo' : 'Inativo / fora da janela'}</div>
             </td>
             <td><span class="event-tag" style="--event-color:${escapeHTML(e.tagColor || '#e11d48')}">${escapeHTML(e.tagLabel || e.name)}</span></td>
-            <td class="mono" style="font-size:11px">${e.startsAt ? formatDate(e.startsAt) : '—'} → ${e.endsAt ? formatDate(e.endsAt) : '—'}</td>
+            <td style="font-size:11px">${e.startsLabel || e.endsLabel
+              ? escapeHTML([e.startsLabel, e.endsLabel].filter(Boolean).join(' → '))
+              : (e.useRealSchedule
+                ? `<span class="mono">${e.startsAt ? formatDate(e.startsAt) : '—'} → ${e.endsAt ? formatDate(e.endsAt) : '—'}</span>`
+                : '<span class="text-muted">manual</span>')}</td>
             <td>${(e.productIds || []).length}</td>
             <td>${e.discountPercent ? e.discountPercent + '%' : '—'}</td>
             <td class="admin-actions-cell">
+              ${!live ? `<button class="btn btn-primary btn-sm" onclick="adminActivateEventNow('${e.id}')">Ativar agora</button>` : ''}
               <button class="btn btn-ghost btn-sm" onclick="adminEditEvent('${e.id}')">Editar</button>
               <button class="btn btn-ghost btn-sm text-danger" onclick="adminDeleteEvent('${e.id}')">Apagar</button>
             </td>
@@ -649,6 +691,9 @@ async function adminSaveEvent(e) {
     ? productIdsRaw.split(/[\s,]+/).map(s => s.trim()).filter(Boolean)
     : [];
   const active = document.getElementById('event-active').value === 'true';
+  const useRealSchedule = document.getElementById('event-use-real')?.value === 'true';
+  const startsLabel = (document.getElementById('event-starts-label')?.value || '').trim();
+  const endsLabel = (document.getElementById('event-ends-label')?.value || '').trim();
   const autoCoupon = document.getElementById('event-auto-coupon')?.value === 'true';
   let couponCode = (document.getElementById('event-coupon-code')?.value || '').trim().toUpperCase();
   const couponPercent = parseFloat(document.getElementById('event-coupon-percent')?.value) || discountPercent || 0;
@@ -656,8 +701,19 @@ async function adminSaveEvent(e) {
     couponCode = (tagLabel || name).replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase() + String(Math.floor(Math.random()*90)+10);
   }
 
-  const startsAt = startsRaw ? new Date(startsRaw).getTime() : Date.now();
-  const endsAt = endsRaw ? new Date(endsRaw).getTime() : (Date.now() + 7 * 24 * 60 * 60 * 1000);
+  let startsAt = null;
+  let endsAt = null;
+  if (useRealSchedule) {
+    startsAt = startsRaw ? parseLocalDateTimeInput(startsRaw) : Date.now();
+    endsAt = endsRaw ? parseLocalDateTimeInput(endsRaw) : (Date.now() + 7 * 24 * 60 * 60 * 1000);
+    if (!startsAt || isNaN(startsAt)) startsAt = Date.now();
+    if (!endsAt || isNaN(endsAt)) endsAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    if (endsAt < startsAt) endsAt = startsAt + 7 * 24 * 60 * 60 * 1000;
+  } else if (startsRaw) {
+    startsAt = parseLocalDateTimeInput(startsRaw);
+  } else if (endsRaw) {
+    endsAt = parseLocalDateTimeInput(endsRaw);
+  }
 
   const data = {
     name,
@@ -669,11 +725,14 @@ async function adminSaveEvent(e) {
     discountPercent,
     productIds,
     active,
+    useRealSchedule: !!useRealSchedule,
+    startsLabel: startsLabel || null,
+    endsLabel: endsLabel || null,
     autoCoupon,
     couponCode: autoCoupon ? couponCode : (couponCode || null),
     couponPercent: autoCoupon ? couponPercent : null,
-    startsAt,
-    endsAt,
+    startsAt: startsAt || null,
+    endsAt: endsAt || null,
     updatedAt: Date.now()
   };
   if (!document.getElementById('event-edit-id').value) {
@@ -705,7 +764,11 @@ async function adminSaveEvent(e) {
     document.getElementById('event-edit-id').value = '';
     document.getElementById('event-form-title').textContent = 'Novo evento';
     if (document.getElementById('event-auto-coupon')) document.getElementById('event-auto-coupon').value = 'false';
+    if (document.getElementById('event-active')) document.getElementById('event-active').value = 'true';
     renderAdminEvents();
+    if (typeof renderEventBanner === 'function') renderEventBanner();
+    if (typeof renderMarketSidePanels === 'function') renderMarketSidePanels();
+    if (state.currentView === 'market' && typeof renderProducts === 'function') renderProducts();
   } catch (err) {
     console.error(err);
     showToast('Erro ao salvar evento.', 'error');
@@ -725,17 +788,39 @@ function adminEditEvent(id) {
   document.getElementById('event-discount').value = ev.discountPercent || 0;
   document.getElementById('event-products').value = (ev.productIds || []).join(', ');
   document.getElementById('event-active').value = ev.active === false ? 'false' : 'true';
+  if (document.getElementById('event-use-real')) document.getElementById('event-use-real').value = ev.useRealSchedule ? 'true' : 'false';
+  if (document.getElementById('event-starts-label')) document.getElementById('event-starts-label').value = ev.startsLabel || '';
+  if (document.getElementById('event-ends-label')) document.getElementById('event-ends-label').value = ev.endsLabel || '';
   if (document.getElementById('event-auto-coupon')) document.getElementById('event-auto-coupon').value = ev.autoCoupon ? 'true' : 'false';
   if (document.getElementById('event-coupon-code')) document.getElementById('event-coupon-code').value = ev.couponCode || '';
   if (document.getElementById('event-coupon-percent')) document.getElementById('event-coupon-percent').value = ev.couponPercent || ev.discountPercent || 0;
-  if (ev.startsAt) {
-    document.getElementById('event-starts').value = new Date(ev.startsAt).toISOString().slice(0, 16);
+  if (document.getElementById('event-starts')) {
+    document.getElementById('event-starts').value = toLocalDateTimeInput(ev.startsAt);
   }
-  if (ev.endsAt) {
-    document.getElementById('event-ends').value = new Date(ev.endsAt).toISOString().slice(0, 16);
+  if (document.getElementById('event-ends')) {
+    document.getElementById('event-ends').value = toLocalDateTimeInput(ev.endsAt);
   }
   document.getElementById('event-form-title').textContent = 'Editar evento';
   document.getElementById('admin-tab-events')?.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function adminActivateEventNow(id) {
+  const ev = state.events?.[id];
+  if (!ev) return;
+  const now = Date.now();
+  try {
+    await db.ref('events/' + id).update({
+      active: true,
+      useRealSchedule: false,
+      updatedAt: now
+    });
+    showToast('Evento ativado (controle manual da mesa).');
+    if (typeof renderEventBanner === 'function') renderEventBanner();
+    if (typeof renderMarketSidePanels === 'function') renderMarketSidePanels();
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao ativar evento.', 'error');
+  }
 }
 
 async function adminDeleteEvent(id) {
