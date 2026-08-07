@@ -1,7 +1,7 @@
 /* Global Smith — Firebase AI Logic (mesmo padrão do Jet League) */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-ai.js";
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app-check.js";
+// App Check desativado de propósito — não importamos nem inicializamos
 
 const aiFirebaseConfig = {
   apiKey: "AIzaSyCBttq3QfezqC5y2KRI4kSs5VoUnAP90Zk",
@@ -13,24 +13,10 @@ const aiFirebaseConfig = {
   appId: "1:1084544496126:web:6a3e7bdff7e246e88bd0af"
 };
 
-const RECAPTCHA_ENTERPRISE_SITE_KEY = "6Lc7HHktAAAAEEGKR8uD0Az8-n-QeHAPZ2aqNGV";
-
 let aiApp = null;
-let appCheckReady = false;
 
 function getAIApp() {
   if (!aiApp) aiApp = initializeApp(aiFirebaseConfig, "gsAI");
-  if (!appCheckReady && RECAPTCHA_ENTERPRISE_SITE_KEY) {
-    try {
-      initializeAppCheck(aiApp, {
-        provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY),
-        isTokenAutoRefreshEnabled: true
-      });
-    } catch (e) {
-      console.warn("App Check:", e?.message || e);
-    }
-    appCheckReady = true;
-  }
   return aiApp;
 }
 
