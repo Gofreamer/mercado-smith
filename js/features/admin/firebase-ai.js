@@ -14,7 +14,6 @@ const aiFirebaseConfig = {
 };
 
 // Igual ao Jet League: deixe vazio para NÃO ativar App Check.
-// Só preencha se configurar reCAPTCHA Enterprise no console.
 const APP_CHECK_SITE_KEY = "";
 
 let aiApp = null;
@@ -48,6 +47,9 @@ const CATEGORIES = [
   "ilegais", "exoticos", "utilidades", "informacoes"
 ];
 
+/** Pending batch from last AI call — used by "Adicionar todos" */
+window.__gsAiBatch = null;
+
 function extractJson(text) {
   if (!text) return null;
   try { return JSON.parse(text); } catch {}
@@ -63,7 +65,34 @@ function extractJson(text) {
   return null;
 }
 
-function applyProductToForm(product, catHint) {
+function extractProducts(text) {
+  if (!text) return [];
+  let data = null;
+  try { data = JSON.parse(text); } catch {
+    const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fence) {
+      try { data = JSON.parse(fence[1].trim()); } catch {}
+    }
+  }
+  if (!data) {
+    // try array slice
+    const a = text.indexOf("[");
+    const b = text.lastIndexOf("]");
+    if (a !== -1 && b > a) {
+      try { data = JSON.parse(text.slice(a, b + 1)); } catch {}
+    }
+  }
+  if (!data) {
+    const one = extractJson(text);
+    return one && one.name ? [one] : [];
+  }
+  if (Array.isArray(data)) return data.filter(p => p && p.name);
+  if (Array.isArray(data.products)) return data.products.filter(p => p && p.name);
+  if (data.name) return [data];
+  return [];
+}
+
+function normalizeProduct(product, catHint) {
   let category = product.category;
   if (!CATEGORIES.includes(category)) category = catHint || "exoticos";
 
@@ -76,59 +105,214 @@ function applyProductToForm(product, catHint) {
     if (isNaN(stock)) stock = null;
   }
 
+  return {
+    name: String(product.name || "").slice(0, 80),
+    description: String(product.description || ""),
+    price: isNaN(price) ? 0 : Math.round(price * 100) / 100,
+    category,
+    deliveryDays,
+    stock,
+    image: "",
+    secretRank: null,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+}
+
+function applyProductToForm(product, catHint) {
+  const p = normalizeProduct(product, catHint);
   if (typeof adminResetProductForm === "function") adminResetProductForm();
 
-  document.getElementById("admin-product-name").value = String(product.name || "").slice(0, 80);
-  document.getElementById("admin-product-desc").value = String(product.description || "");
-  document.getElementById("admin-product-price").value = isNaN(price) ? "" : Math.round(price * 100) / 100;
-  document.getElementById("admin-product-category").value = category;
-  document.getElementById("admin-product-delivery").value = deliveryDays;
-  document.getElementById("admin-product-stock").value = stock === null ? "" : stock;
+  document.getElementById("admin-product-name").value = p.name;
+  document.getElementById("admin-product-desc").value = p.description;
+  document.getElementById("admin-product-price").value = p.price;
+  document.getElementById("admin-product-category").value = p.category;
+  document.getElementById("admin-product-delivery").value = p.deliveryDays;
+  document.getElementById("admin-product-stock").value = p.stock === null ? "" : p.stock;
+  const sec = document.getElementById("admin-product-secret");
+  if (sec) sec.value = "";
 
   document.getElementById("admin-product-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-window.generateProductWithFirebaseAI = async function generateProductWithFirebaseAI() {
+function readAiInputs() {
   const promptEl = document.getElementById("ai-prompt");
   const toneEl = document.getElementById("ai-tone");
   const catHintEl = document.getElementById("ai-category-hint");
-  const btn = document.getElementById("btn-ai-generate");
+  const qtyEl = document.getElementById("ai-qty");
 
   const idea = (promptEl?.value || "").trim();
-  const tone = toneEl?.value || "premium";
+  const toneRaw = (toneEl?.value || "").trim();
   const catHint = catHintEl?.value || "";
+  let qty = parseInt(qtyEl?.value, 10);
+  if (isNaN(qty) || qty < 1) qty = 1;
+  if (qty > 10) qty = 10;
 
   if (!idea) {
-    showToast("Descreva a ideia do item.", "error");
+    showToast("Descreva a ideia do item ou do lote.", "error");
     promptEl?.focus();
-    return;
+    return null;
+  }
+  if (!toneRaw) {
+    showToast('Informe o tom (ou escreva "nenhum").', "error");
+    toneEl?.focus();
+    return null;
   }
 
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "Gerando...";
-  }
-  if (typeof setAiStatus === "function") setAiStatus("Firebase AI gerando (gemini-3.6-flash)...", "loading");
+  const toneNeutral = /^(nenhum|none|neutro|sem tom|n\/?a)$/i.test(toneRaw);
+  const tone = toneNeutral ? "neutro, sem estilo forçado" : toneRaw;
 
-  const toneMap = {
-    premium: "premium, corporativo, sofisticado, Global Smith",
-    sombrio: "sombrio, underground, noir, ameaçador",
-    tecnologico: "tecnológico, cyber, high-tech, futurista",
-    luxo: "luxo extremo, exclusivo, ostentação, elite",
-    ilegal: "mercado negro, ilegal, discreto, arriscado"
-  };
+  return { idea, tone, catHint, qty, promptEl, toneEl };
+}
 
-  const prompt = `Você cria produtos para o marketplace in-world "Global Smith" (RPG, tom corporativo premium).
+function buildPrompt(idea, tone, catHint, qty) {
+  if (qty <= 1) {
+    return `Você cria produtos para o marketplace in-world "Global Smith" (RPG).
 Responda APENAS com JSON válido, sem markdown:
 {"name":"string max 60","description":"2-4 frases em pt-BR","price":number,"category":"uma de: ${CATEGORIES.join(", ")}","deliveryDays":number,"stock":number|null}
 
 Ideia: ${idea}
-Tom: ${toneMap[tone] || tone}
+Tom / estilo: ${tone}
 ${catHint ? `Categoria preferida: ${catHint}` : "Escolha a categoria adequada."}
-Regras: português BR; sem emojis no nome; category exatamente uma das chaves; deliveryDays 0 = imediato.`;
+Regras: português BR; sem emojis no nome; category exatamente uma das chaves; deliveryDays 0 = imediato; respeite o tom (se neutro, texto limpo e direto).`;
+  }
+
+  return `Você cria produtos para o marketplace in-world "Global Smith" (RPG).
+Gere exatamente ${qty} produtos DISTINTOS baseados no pedido do mestre (variações coerentes, não cópias).
+Responda APENAS com JSON válido, sem markdown — um array:
+[{"name":"string max 60","description":"2-4 frases em pt-BR","price":number,"category":"uma de: ${CATEGORIES.join(", ")}","deliveryDays":number,"stock":number|null}, ...]
+
+Pedido / lote: ${idea}
+Tom / estilo: ${tone}
+${catHint ? `Categoria preferida (quando fizer sentido): ${catHint}` : "Escolha categorias adequadas a cada item."}
+Regras: português BR; nomes diferentes entre si; sem emojis no nome; category exatamente uma das chaves; deliveryDays 0 = imediato; respeite o tom; preços variados e realistas.`;
+}
+
+function renderBatchPreview(products) {
+  const box = document.getElementById("ai-batch-preview");
+  if (!box) return;
+  if (!products.length) {
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    return;
+  }
+  box.classList.remove("hidden");
+  box.innerHTML = `
+    <div class="ai-batch-header">
+      <strong>${products.length} item(ns) gerado(s)</strong>
+      <div class="ai-batch-actions">
+        <button type="button" class="btn btn-primary btn-sm" onclick="adminAddAiBatch()">Adicionar todos ao mercado</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="adminClearAiBatch()">Descartar</button>
+      </div>
+    </div>
+    <div class="ai-batch-list">
+      ${products.map((p, i) => `
+        <div class="ai-batch-item">
+          <div class="ai-batch-main">
+            <strong>${escapeHTML(p.name)}</strong>
+            <span class="ai-batch-meta">${escapeHTML(CATEGORY_LABELS[p.category] || p.category)} · ${formatMoney(p.price)}</span>
+            <p>${escapeHTML((p.description || "").slice(0, 140))}${(p.description || "").length > 140 ? "…" : ""}</p>
+          </div>
+          <div class="ai-batch-item-actions">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="adminApplyAiBatchItem(${i})">Editar no form</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="adminAddAiBatchItem(${i})">Só este</button>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+window.adminClearAiBatch = function () {
+  window.__gsAiBatch = null;
+  renderBatchPreview([]);
+  if (typeof setAiStatus === "function") setAiStatus("", "");
+};
+
+window.adminApplyAiBatchItem = function (index) {
+  const list = window.__gsAiBatch || [];
+  const p = list[index];
+  if (!p) return;
+  applyProductToForm(p, p.category);
+  showToast("Carregado no formulário — revise e salve.");
+};
+
+window.adminAddAiBatchItem = async function (index) {
+  const list = window.__gsAiBatch || [];
+  const p = list[index];
+  if (!p) return;
+  try {
+    await db.ref("products").push({
+      ...normalizeProduct(p, p.category),
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    });
+    showToast(`Adicionado: ${p.name}`);
+    list.splice(index, 1);
+    window.__gsAiBatch = list;
+    renderBatchPreview(list);
+    if (!list.length && typeof setAiStatus === "function") {
+      setAiStatus("Lote concluído.", "ok");
+    }
+  } catch (e) {
+    console.error(e);
+    showToast("Erro ao adicionar produto.", "error");
+  }
+};
+
+window.adminAddAiBatch = async function () {
+  const list = window.__gsAiBatch || [];
+  if (!list.length) return;
+  if (!confirm(`Adicionar ${list.length} produto(s) ao mercado agora?`)) return;
+  try {
+    const updates = {};
+    list.forEach((p) => {
+      const key = db.ref("products").push().key;
+      updates[`products/${key}`] = {
+        ...normalizeProduct(p, p.category),
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+    });
+    await db.ref().update(updates);
+    showToast(`${list.length} produtos adicionados.`);
+    if (typeof pushFeed === "function") {
+      pushFeed(`Novo lote de ${list.length} itens no catálogo GS.`, "admin");
+    }
+    window.__gsAiBatch = null;
+    renderBatchPreview([]);
+    if (typeof setAiStatus === "function") setAiStatus("Lote publicado no mercado.", "ok");
+  } catch (e) {
+    console.error(e);
+    showToast("Erro ao publicar lote.", "error");
+  }
+};
+
+async function runFirebaseGenerate(qtyOverride) {
+  const inputs = readAiInputs();
+  if (!inputs) return;
+  const { idea, tone, catHint } = inputs;
+  const qty = qtyOverride != null ? qtyOverride : inputs.qty;
+
+  const btn = document.getElementById("btn-ai-generate");
+  const btnBatch = document.getElementById("btn-ai-batch");
+  const buttons = [btn, btnBatch].filter(Boolean);
+  buttons.forEach((b) => { b.disabled = true; });
+  if (btn) btn.textContent = "Gerando...";
+  if (btnBatch) btnBatch.textContent = "Gerando lote...";
+
+  if (typeof setAiStatus === "function") {
+    setAiStatus(
+      qty > 1
+        ? `Firebase AI gerando lote de ${qty} itens...`
+        : "Firebase AI gerando (gemini-3.6-flash)...",
+      "loading"
+    );
+  }
+
+  const prompt = buildPrompt(idea, tone, catHint, qty);
 
   try {
-    // Mesmo modelo padrão do Jet League; fallback se indisponível
     let text = "";
     try {
       text = await jetStyleGenerate(prompt, "gemini-3.6-flash");
@@ -137,17 +321,30 @@ Regras: português BR; sem emojis no nome; category exatamente uma das chaves; d
       text = await jetStyleGenerate(prompt, "gemini-2.5-flash");
     }
 
-    const product = extractJson(text);
-    if (!product || !product.name) {
+    const products = extractProducts(text).map((p) => normalizeProduct(p, catHint));
+    if (!products.length) {
       console.error("Firebase AI raw:", text);
-      throw new Error("A IA não retornou um produto válido. Tente de novo.");
+      throw new Error("A IA não retornou produto(s) válido(s). Tente de novo.");
     }
 
-    applyProductToForm(product, catHint);
-    if (typeof setAiStatus === "function") {
-      setAiStatus("Pronto via Firebase AI. Revise e adicione o produto.", "ok");
+    if (products.length === 1 && qty <= 1) {
+      window.__gsAiBatch = null;
+      renderBatchPreview([]);
+      applyProductToForm(products[0], catHint);
+      if (typeof setAiStatus === "function") {
+        setAiStatus("Pronto via Firebase AI. Revise e adicione o produto.", "ok");
+      }
+      showToast("Item gerado (Firebase AI)");
+    } else {
+      window.__gsAiBatch = products;
+      renderBatchPreview(products);
+      if (typeof setAiStatus === "function") {
+        setAiStatus(`${products.length} itens gerados. Revise o lote e publique.`, "ok");
+      }
+      showToast(`Lote: ${products.length} itens`);
+      // also load first into form for quick edit
+      applyProductToForm(products[0], catHint);
     }
-    showToast("Item gerado (Firebase AI)");
   } catch (err) {
     console.error(err);
     const msg = (err && err.message) ? err.message : String(err);
@@ -164,7 +361,27 @@ Regras: português BR; sem emojis no nome; category exatamente uma das chaves; d
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = "Gerar com IA (Firebase)";
+      btn.textContent = "Gerar 1 com IA";
+    }
+    if (btnBatch) {
+      btnBatch.disabled = false;
+      btnBatch.textContent = "Gerar lote (IA)";
     }
   }
+}
+
+window.generateProductWithFirebaseAI = async function generateProductWithFirebaseAI() {
+  const qtyEl = document.getElementById("ai-qty");
+  const qty = Math.max(1, Math.min(10, parseInt(qtyEl?.value, 10) || 1));
+  // botão principal: se qty>1 gera lote, senão 1
+  await runFirebaseGenerate(qty);
+};
+
+window.generateProductBatchWithFirebaseAI = async function generateProductBatchWithFirebaseAI() {
+  const qtyEl = document.getElementById("ai-qty");
+  let qty = parseInt(qtyEl?.value, 10);
+  if (isNaN(qty) || qty < 2) qty = 5;
+  if (qty > 10) qty = 10;
+  if (qtyEl) qtyEl.value = String(qty);
+  await runFirebaseGenerate(qty);
 };

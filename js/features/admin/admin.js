@@ -407,7 +407,7 @@ async function generateProductWithAI() {
 
   const apiKey = (keyInput?.value || '').trim() || (localStorage.getItem(AI_KEY_STORAGE) || '');
   const idea = (promptEl?.value || '').trim();
-  const tone = toneEl?.value || 'premium';
+  const toneRaw = (toneEl?.value || '').trim();
   const catHint = catHintEl?.value || '';
 
   if (!apiKey) {
@@ -420,8 +420,14 @@ async function generateProductWithAI() {
     promptEl?.focus();
     return;
   }
+  if (!toneRaw) {
+    showToast('Informe o tom (ou escreva "nenhum").', 'error');
+    toneEl?.focus();
+    return;
+  }
+  const toneNeutral = /^(nenhum|none|neutro|sem tom|n\/?a)$/i.test(toneRaw);
+  const tone = toneNeutral ? 'neutro, sem estilo forçado' : toneRaw;
 
-  // salva chave se ainda não estava
   try { localStorage.setItem(AI_KEY_STORAGE, apiKey); } catch {}
 
   if (btn) {
@@ -430,15 +436,7 @@ async function generateProductWithAI() {
   }
   setAiStatus('Consultando a IA...', 'loading');
 
-  const toneMap = {
-    premium: 'premium, corporativo, sofisticado, Global Smith',
-    sombrio: 'sombrio, underground, noir, ameaçador',
-    tecnologico: 'tecnológico, cyber, high-tech, futurista',
-    luxo: 'luxo extremo, exclusivo, ostentação, elite',
-    ilegal: 'mercado negro, ilegal, discreto, arriscado'
-  };
-
-  const systemInstruction = `Você cria produtos para o marketplace in-world "Global Smith", um mercado premium de RPG (tom corporativo americano, poder, exclusividade).
+  const systemInstruction = `Você cria produtos para o marketplace in-world "Global Smith", um mercado de RPG.
 Responda APENAS com um JSON válido, sem markdown, no formato:
 {
   "name": "string (nome curto e marcante, máx 60 caracteres)",
@@ -448,10 +446,10 @@ Responda APENAS com um JSON válido, sem markdown, no formato:
   "deliveryDays": number (0 = imediato; serviços costumam 0-2; físicos/raros 1-14; ilegais/exóticos 3-21),
   "stock": number ou null (null = ilimitado; itens únicos use 1; consumíveis 5-50)
 }
-Regras: português BR; sem emojis no nome; não invente URLs; category deve ser exatamente uma das chaves listadas.`;
+Regras: português BR; sem emojis no nome; não invente URLs; category deve ser exatamente uma das chaves listadas; respeite o tom pedido.`;
 
   const userPrompt = `Ideia do jogador/mestre: ${idea}
-Tom desejado: ${toneMap[tone] || tone}
+Tom / estilo desejado: ${tone}
 ${catHint ? `Categoria preferida: ${catHint} (${CATEGORY_LABELS[catHint] || catHint})` : 'Escolha a categoria mais adequada.'}
 Gere um único produto coerente com o universo Global Smith.`;
 
@@ -600,10 +598,12 @@ function priceFor(category, tone, idea) {
 
   if (/vip|premium|exclusiv|lendár|único|grandioso|luxo/.test(t)) base *= 2.2;
   if (/bilhete|ingresso|show/.test(t)) base = Math.max(base, 3500);
-  if (tone === 'luxo') base *= 2.5;
-  if (tone === 'ilegal') base *= 1.6;
-  if (tone === 'sombrio') base *= 1.3;
-  if (tone === 'tecnologico') base *= 1.4;
+  const tl = String(tone || '').toLowerCase();
+  if (/luxo|ostenta|exclusiv|elite/.test(tl)) base *= 2.5;
+  if (/ilegal|negro|contrabando|underground|crime/.test(tl)) base *= 1.6;
+  if (/sombrio|noir|dark/.test(tl)) base *= 1.3;
+  if (/tecnol|cyber|high-?tech|futur/.test(tl)) base *= 1.4;
+  if (/premium|corporativ|sofistic/.test(tl)) base *= 1.2;
 
   // variação
   const factor = 0.75 + Math.random() * 0.6;
@@ -704,8 +704,15 @@ function buildDescription(name, idea, category, tone) {
     ]
   };
 
-  const toneKey = openings[tone] ? tone : 'premium';
-  const open = pick(openings[toneKey]);
+  const tl = String(tone || '').toLowerCase();
+  let toneKey = 'premium';
+  if (/^(neutro|nenhum|none)$/.test(tl)) toneKey = 'premium';
+  else if (/sombrio|noir|dark|underground/.test(tl)) toneKey = 'sombrio';
+  else if (/tecnol|cyber|futur/.test(tl)) toneKey = 'tecnologico';
+  else if (/luxo|ostenta|elite/.test(tl)) toneKey = 'luxo';
+  else if (/ilegal|negro|contrabando/.test(tl)) toneKey = 'ilegal';
+  else if (openings[tone]) toneKey = tone;
+  const open = pick(openings[toneKey] || openings.premium);
   const mid = pick(middles);
   const close = pick(closings[category] || closings.exoticos);
 
@@ -716,51 +723,90 @@ function generateProductLocal() {
   const promptEl = document.getElementById('ai-prompt');
   const toneEl = document.getElementById('ai-tone');
   const catHintEl = document.getElementById('ai-category-hint');
+  const qtyEl = document.getElementById('ai-qty');
   const btn = document.getElementById('btn-local-generate');
 
   const idea = (promptEl?.value || '').trim();
-  const tone = toneEl?.value || 'premium';
+  const toneRaw = (toneEl?.value || '').trim();
   const catHint = catHintEl?.value || '';
+  let qty = parseInt(qtyEl?.value, 10);
+  if (isNaN(qty) || qty < 1) qty = 1;
+  if (qty > 10) qty = 10;
 
   if (!idea) {
-    showToast('Descreva a ideia do item.', 'error');
+    showToast('Descreva a ideia do item ou do lote.', 'error');
     promptEl?.focus();
     return;
   }
+  if (!toneRaw) {
+    showToast('Informe o tom (ou escreva "nenhum").', 'error');
+    toneEl?.focus();
+    return;
+  }
+  const toneNeutral = /^(nenhum|none|neutro|sem tom|n\/?a)$/i.test(toneRaw);
+  const tone = toneNeutral ? 'neutro' : toneRaw.toLowerCase();
 
   if (btn) {
     btn.disabled = true;
     btn.textContent = 'Gerando...';
   }
-  setAiStatus('Gerando localmente...', 'loading');
+  setAiStatus(qty > 1 ? `Gerando ${qty} variações locais...` : 'Gerando localmente...', 'loading');
 
-  // pequeno delay só pra feedback visual
   setTimeout(() => {
     try {
-      const category = detectCategoryFromIdea(idea, catHint);
-      let name = titleCaseIdea(idea);
-
-      // refinamentos de nome por tipo
-      if (category === 'servicos' && /bilhete|ingresso|show|evento/i.test(idea) && !/bilhete|ingresso/i.test(name)) {
-        name = 'Bilhete — ' + name;
+      const products = [];
+      for (let i = 0; i < qty; i++) {
+        const seed = qty > 1 ? `${idea} (variação ${i + 1})` : idea;
+        const category = detectCategoryFromIdea(idea, catHint);
+        let name = titleCaseIdea(seed);
+        if (qty > 1) {
+          const suffixes = ['Padrão', 'Premium', 'Edição limitada', 'Compacto', 'Executivo', 'Clássico', 'Refinado', 'Operacional', 'Shadow', 'Elite'];
+          name = (titleCaseIdea(idea) + ' — ' + suffixes[i % suffixes.length]).slice(0, 80);
+        }
+        if (category === 'servicos' && /bilhete|ingresso|show|evento/i.test(idea) && !/bilhete|ingresso/i.test(name)) {
+          name = ('Bilhete — ' + name).slice(0, 80);
+        }
+        const price = Math.round(priceFor(category, tone, idea) * (1 + (i * 0.12)) * 100) / 100;
+        const deliveryDays = deliveryFor(category, idea);
+        const stock = stockFor(category, idea);
+        const description = buildDescription(name, idea, category, tone);
+        products.push({
+          name, description, price, category, deliveryDays, stock,
+          image: '', secretRank: null
+        });
       }
 
-      const price = priceFor(category, tone, idea);
-      const deliveryDays = deliveryFor(category, idea);
-      const stock = stockFor(category, idea);
-      const description = buildDescription(name, idea, category, tone);
-
-      adminResetProductForm();
-      document.getElementById('admin-product-name').value = name.slice(0, 80);
-      document.getElementById('admin-product-desc').value = description;
-      document.getElementById('admin-product-price').value = price;
-      document.getElementById('admin-product-category').value = category;
-      document.getElementById('admin-product-delivery').value = deliveryDays;
-      document.getElementById('admin-product-stock').value = stock === null ? '' : stock;
-
-      document.getElementById('admin-product-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setAiStatus('Gerado localmente. Revise e clique em Adicionar Produto.', 'ok');
-      showToast('Item gerado (local)');
+      if (products.length === 1) {
+        window.__gsAiBatch = null;
+        if (typeof renderBatchPreview === 'function') renderBatchPreview([]);
+        const p = products[0];
+        adminResetProductForm();
+        document.getElementById('admin-product-name').value = p.name;
+        document.getElementById('admin-product-desc').value = p.description;
+        document.getElementById('admin-product-price').value = p.price;
+        document.getElementById('admin-product-category').value = p.category;
+        document.getElementById('admin-product-delivery').value = p.deliveryDays;
+        document.getElementById('admin-product-stock').value = p.stock === null ? '' : p.stock;
+        document.getElementById('admin-product-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setAiStatus('Gerado localmente. Revise e clique em Adicionar Produto.', 'ok');
+        showToast('Item gerado (local)');
+      } else {
+        window.__gsAiBatch = products;
+        if (typeof renderBatchPreview === 'function') renderBatchPreview(products);
+        else if (typeof adminAddAiBatch === 'function') {
+          // fallback: preview only after module load
+        }
+        const p = products[0];
+        adminResetProductForm();
+        document.getElementById('admin-product-name').value = p.name;
+        document.getElementById('admin-product-desc').value = p.description;
+        document.getElementById('admin-product-price').value = p.price;
+        document.getElementById('admin-product-category').value = p.category;
+        document.getElementById('admin-product-delivery').value = p.deliveryDays;
+        document.getElementById('admin-product-stock').value = p.stock === null ? '' : p.stock;
+        setAiStatus(`${products.length} variações locais. Publique o lote ou edite no form.`, 'ok');
+        showToast(`Lote local: ${products.length} itens`);
+      }
     } catch (err) {
       console.error(err);
       setAiStatus('Erro no gerador local.', 'error');
@@ -772,6 +818,130 @@ function generateProductLocal() {
       }
     }
   }, 280);
+}
+
+/** Usado pelo preview do lote (definido também no firebase-ai.js module) */
+function renderBatchPreview(products) {
+  const box = document.getElementById('ai-batch-preview');
+  if (!box) return;
+  if (!products || !products.length) {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+    return;
+  }
+  box.classList.remove('hidden');
+  box.innerHTML = `
+    <div class="ai-batch-header">
+      <strong>${products.length} item(ns) gerado(s)</strong>
+      <div class="ai-batch-actions">
+        <button type="button" class="btn btn-primary btn-sm" onclick="adminAddAiBatch()">Adicionar todos ao mercado</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="adminClearAiBatch()">Descartar</button>
+      </div>
+    </div>
+    <div class="ai-batch-list">
+      ${products.map((p, i) => `
+        <div class="ai-batch-item">
+          <div class="ai-batch-main">
+            <strong>${escapeHTML(p.name)}</strong>
+            <span class="ai-batch-meta">${escapeHTML(CATEGORY_LABELS[p.category] || p.category)} · ${formatMoney(p.price)}</span>
+            <p>${escapeHTML((p.description || '').slice(0, 140))}${(p.description || '').length > 140 ? '…' : ''}</p>
+          </div>
+          <div class="ai-batch-item-actions">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="adminApplyAiBatchItem(${i})">Editar no form</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="adminAddAiBatchItem(${i})">Só este</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+if (typeof window.adminClearAiBatch !== 'function') {
+  window.adminClearAiBatch = function () {
+    window.__gsAiBatch = null;
+    renderBatchPreview([]);
+    setAiStatus('', '');
+  };
+}
+
+if (typeof window.adminApplyAiBatchItem !== 'function') {
+  window.adminApplyAiBatchItem = function (index) {
+    const list = window.__gsAiBatch || [];
+    const p = list[index];
+    if (!p) return;
+    adminResetProductForm();
+    document.getElementById('admin-product-name').value = String(p.name || '').slice(0, 80);
+    document.getElementById('admin-product-desc').value = p.description || '';
+    document.getElementById('admin-product-price').value = p.price ?? '';
+    document.getElementById('admin-product-category').value = p.category || 'exoticos';
+    document.getElementById('admin-product-delivery').value = p.deliveryDays || 0;
+    document.getElementById('admin-product-stock').value = p.stock == null ? '' : p.stock;
+    showToast('Carregado no formulário — revise e salve.');
+  };
+}
+
+if (typeof window.adminAddAiBatchItem !== 'function') {
+  window.adminAddAiBatchItem = async function (index) {
+    const list = window.__gsAiBatch || [];
+    const p = list[index];
+    if (!p) return;
+    try {
+      await db.ref('products').push({
+        name: p.name,
+        description: p.description || '',
+        price: Number(p.price) || 0,
+        category: p.category || 'exoticos',
+        image: '',
+        stock: p.stock == null ? null : p.stock,
+        deliveryDays: p.deliveryDays || 0,
+        secretRank: null,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      });
+      showToast('Adicionado: ' + p.name);
+      list.splice(index, 1);
+      window.__gsAiBatch = list;
+      renderBatchPreview(list);
+    } catch (e) {
+      console.error(e);
+      showToast('Erro ao adicionar.', 'error');
+    }
+  };
+}
+
+if (typeof window.adminAddAiBatch !== 'function') {
+  window.adminAddAiBatch = async function () {
+    const list = window.__gsAiBatch || [];
+    if (!list.length) return;
+    if (!confirm('Adicionar ' + list.length + ' produto(s) ao mercado agora?')) return;
+    try {
+      const updates = {};
+      list.forEach((p) => {
+        const key = db.ref('products').push().key;
+        updates['products/' + key] = {
+          name: p.name,
+          description: p.description || '',
+          price: Number(p.price) || 0,
+          category: p.category || 'exoticos',
+          image: '',
+          stock: p.stock == null ? null : p.stock,
+          deliveryDays: p.deliveryDays || 0,
+          secretRank: null,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+      });
+      await db.ref().update(updates);
+      showToast(list.length + ' produtos adicionados.');
+      if (typeof pushFeed === 'function') pushFeed('Novo lote de ' + list.length + ' itens no catálogo GS.', 'admin');
+      window.__gsAiBatch = null;
+      renderBatchPreview([]);
+      setAiStatus('Lote publicado no mercado.', 'ok');
+    } catch (e) {
+      console.error(e);
+      showToast('Erro ao publicar lote.', 'error');
+    }
+  };
 }
 
 

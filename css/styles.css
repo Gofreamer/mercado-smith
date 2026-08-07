@@ -2169,3 +2169,49 @@ body.theme-blackmarket .brand {
   .log-row { grid-template-columns: 1fr; gap: 2px; }
   .wishlist-item { flex-direction: column; align-items: flex-start; }
 }
+
+
+/* ========== AI BATCH PREVIEW ========== */
+.ai-batch-preview {
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.ai-batch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.ai-batch-actions { display: flex; gap: 8px; }
+.ai-batch-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+.ai-batch-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.ai-batch-main p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.ai-batch-meta {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.ai-batch-item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}

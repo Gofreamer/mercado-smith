@@ -220,22 +220,16 @@
         <div id="admin-tab-products" class="admin-tab-panel">
           <div class="admin-card ai-card">
             <h3>✨ Gerar produto com IA</h3>
-            <p class="text-muted admin-hint">Descreva a ideia. <strong>Local</strong> = sem limite. <strong>Firebase AI</strong> = Gemini pelo seu projeto (AI Logic), sem colar chave no site.</p>
+            <p class="text-muted admin-hint">Descreva a ideia (ou um lote). <strong>Local</strong> = sem limite. <strong>Firebase AI</strong> = Gemini pelo projeto. Quantidade &gt; 1 gera vários itens de uma vez.</p>
             <div class="form-group">
-              <label>Ideia do item</label>
-              <textarea id="ai-prompt" rows="2" placeholder="Ex: um bilhete VIP da Liga com acesso aos bastidores, tom premium e misterioso"></textarea>
+              <label>Ideia / pedido do lote</label>
+              <textarea id="ai-prompt" rows="3" placeholder='Ex: "5 itens do show da Nina Riders: passes, merch e acesso VIP" ou "um bilhete frontstage"'></textarea>
+            </div>
+            <div class="form-group">
+              <label>Tom <span class="text-muted">(obrigatório — descreva o estilo ou escreva "nenhum")</span></label>
+              <input type="text" id="ai-tone" required placeholder='Ex: premium corporativo, sombrio underground, luxo ostentação… ou "nenhum"'/>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>Tom (opcional)</label>
-                <select id="ai-tone">
-                  <option value="premium">Premium / corporativo</option>
-                  <option value="sombrio">Sombrio / underground</option>
-                  <option value="tecnologico">Tecnológico / cyber</option>
-                  <option value="luxo">Luxo extremo</option>
-                  <option value="ilegal">Mercado negro</option>
-                </select>
-              </div>
               <div class="form-group">
                 <label>Categoria preferida (opcional)</label>
                 <select id="ai-category-hint">
@@ -250,13 +244,19 @@
                   <option value="informacoes">Informações &amp; Favores</option>
                 </select>
               </div>
+              <div class="form-group">
+                <label>Quantidade</label>
+                <input type="number" id="ai-qty" min="1" max="10" value="1" title="1 = preenche o formulário; 2–10 = lote"/>
+              </div>
             </div>
             <div class="ai-actions">
               <button type="button" class="btn btn-primary" id="btn-local-generate" onclick="generateProductLocal()">Gerar local</button>
-              <button type="button" class="btn btn-ghost" id="btn-ai-generate" onclick="generateProductWithFirebaseAI()">Gerar com IA (Firebase)</button>
+              <button type="button" class="btn btn-ghost" id="btn-ai-generate" onclick="generateProductWithFirebaseAI()">Gerar com IA</button>
+              <button type="button" class="btn btn-ghost" id="btn-ai-batch" onclick="generateProductBatchWithFirebaseAI()">Gerar lote (IA)</button>
             </div>
             <p class="ai-status" id="ai-status"></p>
-            <p class="text-muted admin-hint" style="margin-top:8px">Firebase AI Logic precisa estar ativado no console do projeto mercado-smith.</p>
+            <div id="ai-batch-preview" class="ai-batch-preview hidden"></div>
+            <p class="text-muted admin-hint" style="margin-top:8px">Firebase AI Logic precisa estar ativado no console do projeto mercado-smith. Lote máx. 10 itens.</p>
           </div>
 
           <div class="admin-split">
