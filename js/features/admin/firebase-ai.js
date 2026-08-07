@@ -35,9 +35,9 @@ function getAIApp() {
   return aiApp;
 }
 
-async function jetStyleGenerate(prompt, modelName = "gemini-2.0-flash") {
+async function jetStyleGenerate(prompt, modelName = "gemini-3.6-flash") {
   const ai = getAI(getAIApp(), { backend: new GoogleAIBackend() });
-  const candidates = [modelName, "gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"];
+  const candidates = [modelName, "gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash"];
   const tried = new Set();
   let lastErr;
   for (const m of candidates) {
@@ -426,7 +426,7 @@ Ideia do mestre: ${idea}
 Tom pedido: ${tone}
 Regras: português BR; nome próprio quando fizer sentido (ex: Nina Riders Merch); sem inventar URLs.`;
 
-    const text = await jetStyleGenerate(prompt, "gemini-2.0-flash");
+    const text = await jetStyleGenerate(prompt, "gemini-3.6-flash");
     const data = extractJson(text);
     if (!data || !data.name) {
       throw new Error("Resposta da IA inválida");
@@ -451,6 +451,77 @@ Regras: português BR; nome próprio quando fizer sentido (ex: Nina Riders Merch
       showToast("IA falhou: " + msg.slice(0, 120) + " — tentando local…", "error");
     }
     if (typeof generateVendorLocal === "function") generateVendorLocal();
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Gerar com IA";
+    }
+  }
+};
+
+
+window.generateEventWithFirebaseAI = async function generateEventWithFirebaseAI() {
+  const idea = (document.getElementById("event-ai-idea")?.value || "").trim();
+  const tone = (document.getElementById("event-ai-tone")?.value || "campanha premium").trim() || "campanha premium";
+  if (!idea) {
+    if (typeof showToast === "function") showToast("Descreva o evento (ex: Semana Nina Riders).", "error");
+    return;
+  }
+  const btn = document.getElementById("btn-event-ai");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Gerando…";
+  }
+  try {
+    const prompt = `Você cria eventos temporários para o mercado fictício Global Smith (RP cyber-corporativo).
+Responda APENAS com um JSON válido (sem markdown), neste formato:
+{
+  "name": "nome do evento (até 60 chars)",
+  "tagLabel": "tag curta no catálogo (até 24 chars)",
+  "tagColor": "#hexcor vibrante",
+  "bannerText": "frase do banner (até 100 chars)",
+  "description": "1-2 frases in-world em português BR",
+  "discountPercent": number entre 0 e 40,
+  "autoCoupon": true ou false,
+  "couponCode": "CODIGOMAIUSCULO sem espaços (até 12) ou null",
+  "couponPercent": number entre 0 e 40
+}
+Ideia do mestre: ${idea}
+Tom: ${tone}
+Regras: português BR; sem emoji; cupom só se fizer sentido narrativo; cores tipo #e11d48 #6366f1 #f59e0b.`;
+
+    const text = await jetStyleGenerate(prompt, "gemini-3.6-flash");
+    const data = extractJson(text);
+    if (!data || !data.name) throw new Error("Resposta da IA inválida");
+
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && val != null && val !== "") el.value = val;
+    };
+    set("event-name", String(data.name).slice(0, 60));
+    set("event-tag", String(data.tagLabel || data.name).slice(0, 24));
+    if (data.tagColor && /^#[0-9a-fA-F]{6}$/.test(String(data.tagColor))) {
+      set("event-color", data.tagColor);
+    }
+    set("event-banner-text", String(data.bannerText || "").slice(0, 120));
+    set("event-desc", String(data.description || "").slice(0, 300));
+    const disc = Math.max(0, Math.min(90, parseInt(data.discountPercent, 10) || 0));
+    set("event-discount", String(disc));
+    const auto = !!data.autoCoupon;
+    if (document.getElementById("event-auto-coupon")) {
+      document.getElementById("event-auto-coupon").value = auto ? "true" : "false";
+    }
+    if (auto && data.couponCode) {
+      set("event-coupon-code", String(data.couponCode).toUpperCase().replace(/\s+/g, "").slice(0, 12));
+    }
+    const cp = Math.max(0, Math.min(90, parseInt(data.couponPercent, 10) || disc));
+    set("event-coupon-percent", String(cp));
+    if (typeof showToast === "function") showToast("Evento gerado pela IA (gemini-3.6-flash) — revise e salve.");
+  } catch (err) {
+    console.error(err);
+    if (typeof showToast === "function") {
+      showToast("IA do evento falhou: " + String(err?.message || err).slice(0, 140), "error");
+    }
   } finally {
     if (btn) {
       btn.disabled = false;

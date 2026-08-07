@@ -570,6 +570,12 @@
             <div class="admin-card">
               <h3 id="event-form-title">Novo evento</h3>
               <p class="text-muted admin-hint">Ex: “Semana Nina Riders”. IDs de produto separados por vírgula (copie do Firebase ou da lista de produtos).</p>
+              <div class="admin-card" style="margin-bottom:14px;padding:12px;background:rgba(0,0,0,0.15)">
+                <label class="text-muted" style="font-size:12px">Gerar com Firebase AI (gemini-3.6-flash)</label>
+                <input type="text" id="event-ai-idea" class="search-input" placeholder="Ex: Semana Nina Riders merch e VIP" style="width:100%;margin:6px 0"/>
+                <input type="text" id="event-ai-tone" class="search-input" placeholder="Tom: show, premium, underground…" style="width:100%;margin-bottom:8px"/>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-event-ai" onclick="generateEventWithFirebaseAI()">Gerar com IA</button>
+              </div>
               <form id="admin-event-form" onsubmit="adminSaveEvent(event)">
                 <input type="hidden" id="event-edit-id" value=""/>
                 <div class="form-group">
