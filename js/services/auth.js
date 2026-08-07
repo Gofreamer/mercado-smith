@@ -38,9 +38,13 @@ async function handleRegister(e) {
     await db.ref('users/' + cred.user.uid).set({
       name: name,
       email: email,
-      balance: 1000.00, // saldo inicial
+      balance: 1000.00,
       isAdmin: false,
+      blackMarketAccess: false,
+      repSpent: 0,
+      repOrders: 0,
       inventory: {},
+      wishlist: {},
       createdAt: Date.now()
     });
   } catch (err) {

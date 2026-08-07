@@ -4,13 +4,19 @@ const state = {
   user: null,
   profile: null,
   products: {},
-  orders: [],        // pedidos do usuário logado
-  allOrders: [],     // todos (admin)
+  orders: [],
+  allOrders: [],
   cart: {},
   currentView: 'market',
   cartOpen: false,
-  sortBy: 'name',    // name | price-asc | price-desc | newest
-  editingProductId: null
+  sortBy: 'name',
+  editingProductId: null,
+  wishlist: {},
+  coupons: {},
+  feed: [],
+  offers: [],
+  adminLog: [],
+  appliedCoupon: null
 };
 
 const ADMIN_UIDS = [];

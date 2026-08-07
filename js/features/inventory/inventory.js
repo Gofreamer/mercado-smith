@@ -23,20 +23,21 @@ function renderInventory() {
 
   list.innerHTML = items.map(item => {
     const status = item.status || 'delivered';
-    const statusClass = status === 'delivered' ? 'status-delivered' : 'status-transit';
     const statusLabel = formatDeliveryLabel(item);
+    const msg = item.statusMessage || STATUS_MESSAGES[status] || '';
 
     const img = item.image
       ? `<img class="inv-thumb" src="${escapeHTML(item.image)}" alt="" onerror="this.outerHTML='<div class=\\'inv-thumb placeholder\\'>${(item.name||'?')[0]}</div>'"/>`
       : `<div class="inv-thumb placeholder">${(item.name || '?')[0]}</div>`;
 
     return `
-      <div class="inventory-item">
+      <div class="inventory-item ${item.illegal ? 'item-illegal' : ''}">
         ${img}
         <div class="item-info">
-          <h4>${escapeHTML(item.name)}</h4>
+          <h4>${escapeHTML(item.name)}${item.illegal ? ' <span class="tag-illegal">Subsolo</span>' : ''}</h4>
           <p>${escapeHTML(CATEGORY_LABELS[item.category] || item.category || '')}</p>
-          <span class="status-pill ${statusClass}">${statusLabel}</span>
+          <span class="status-pill ${statusClass(status)}">${statusLabel}</span>
+          ${msg ? `<p class="status-msg">${escapeHTML(msg)}</p>` : ''}
         </div>
         <div class="item-meta">
           <div class="item-price">${formatMoney(item.price)}</div>
@@ -67,21 +68,22 @@ function renderOrders() {
     const qty = order.quantity || 1;
     const unit = order.unitPrice != null ? order.unitPrice : order.price;
     const status = order.status || 'delivered';
-    const statusClass = status === 'delivered' ? 'status-delivered' : 'status-transit';
     const statusLabel = formatDeliveryLabel(order);
+    const msg = order.statusMessage || STATUS_MESSAGES[status] || '';
 
     const img = order.image
       ? `<img class="inv-thumb" src="${escapeHTML(order.image)}" alt="" onerror="this.outerHTML='<div class=\\'inv-thumb placeholder\\'>${(order.productName||'?')[0]}</div>'"/>`
       : `<div class="inv-thumb placeholder">${(order.productName || '?')[0]}</div>`;
 
     return `
-      <div class="order-item">
+      <div class="order-item ${order.illegal ? 'item-illegal' : ''}">
         ${img}
         <div class="item-info">
           <h4>${escapeHTML(order.productName)}${qty > 1 ? ` <span class="qty-badge">×${qty}</span>` : ''}</h4>
           <p>${formatDateTime(order.createdAt)}</p>
           ${order.category ? `<span class="order-cat">${escapeHTML(CATEGORY_LABELS[order.category] || order.category)}</span>` : ''}
-          <span class="status-pill ${statusClass}">${statusLabel}</span>
+          <span class="status-pill ${statusClass(status)}">${statusLabel}</span>
+          ${msg ? `<p class="status-msg">${escapeHTML(msg)}</p>` : ''}
         </div>
         <div class="item-meta">
           <div class="item-price success">${formatMoney(order.price)}</div>

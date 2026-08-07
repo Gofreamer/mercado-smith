@@ -87,6 +87,8 @@ function adminEditProduct(id) {
     (p.stock === null || p.stock === undefined) ? '' : p.stock;
   document.getElementById('admin-product-delivery').value =
     p.deliveryDays > 0 ? p.deliveryDays : 0;
+  const sec = document.getElementById('admin-product-secret');
+  if (sec) sec.value = p.secretRank || '';
 
   document.getElementById('admin-product-form-title').textContent = 'Editar Produto';
   document.getElementById('admin-product-submit').textContent = 'Salvar alterações';
@@ -111,6 +113,8 @@ async function adminSaveProduct(e) {
     return;
   }
 
+  const secretRank = document.getElementById('admin-product-secret')?.value || '';
+
   const product = {
     name,
     description,
@@ -119,6 +123,7 @@ async function adminSaveProduct(e) {
     image: image || '',
     stock: stockRaw === '' ? null : parseInt(stockRaw, 10),
     deliveryDays: deliveryDays > 0 ? deliveryDays : 0,
+    secretRank: secretRank || null,
     createdAt: state.editingProductId
       ? (state.products[state.editingProductId]?.createdAt || Date.now())
       : Date.now(),
@@ -183,7 +188,7 @@ function renderAdminOrders() {
         <tbody>
           ${orders.map(o => {
             const status = o.status || 'delivered';
-            const statusClass = status === 'delivered' ? 'status-delivered' : 'status-transit';
+            const sClass = statusClass(status);
             return `
               <tr>
                 <td>
@@ -192,13 +197,12 @@ function renderAdminOrders() {
                 </td>
                 <td>${escapeHTML(o.userName || o.userId || '—')}</td>
                 <td class="mono">${formatMoney(o.price)}</td>
-                <td><span class="status-pill ${statusClass}">${STATUS_LABELS[status] || status}</span></td>
+                <td><span class="status-pill ${sClass}">${STATUS_LABELS[status] || status}</span></td>
                 <td>${o.estimatedDelivery ? formatDate(o.estimatedDelivery) : '—'}</td>
                 <td class="admin-actions-cell">
-                  ${status !== 'delivered'
-                    ? `<button class="btn btn-primary btn-sm" onclick="adminMarkDelivered('${o.id}')">Marcar entregue</button>`
-                    : `<span class="text-muted" style="font-size:12px">OK</span>`
-                  }
+                  <select class="select select-sm" onchange="adminSetOrderStatus('${o.id}', this.value)">
+                    ${Object.entries(STATUS_LABELS).map(([k,v]) => `<option value="${k}" ${status===k?'selected':''}>${v}</option>`).join('')}
+                  </select>
                   <button class="btn btn-ghost btn-sm" onclick="adminEditOrderDelivery('${o.id}')">Data</button>
                 </td>
               </tr>
@@ -228,8 +232,14 @@ async function adminMarkDelivered(orderId) {
       if (item.productId === order.productId && item.status === 'in_transit') {
         updates[`users/${order.userId}/inventory/${key}/status`] = 'delivered';
         updates[`users/${order.userId}/inventory/${key}/deliveredAt`] = now;
+        updates[`users/${order.userId}/inventory/${key}/statusMessage`] = STATUS_MESSAGES.delivered;
       }
     });
+
+    const uSnap = await db.ref('users/' + order.userId).once('value');
+    const u = uSnap.val() || {};
+    updates[`users/${order.userId}/repSpent`] = (Number(u.repSpent) || 0) + (Number(order.price) || 0);
+    updates[`users/${order.userId}/repOrders`] = (Number(u.repOrders) || 0) + 1;
 
     await db.ref().update(updates);
     showToast('Pedido marcado como entregue!');
@@ -330,6 +340,10 @@ function switchAdminTab(tab, btn) {
   if (btn) btn.classList.add('active');
   if (tab === 'products') renderAdminProducts();
   if (tab === 'orders') renderAdminOrders();
+  if (tab === 'coupons') renderAdminCoupons();
+  if (tab === 'offers') renderAdminOffers();
+  if (tab === 'log') renderAdminLog();
+  if (tab === 'access') { /* form only */ }
 }
 
 /* ---------- IA (Gemini) ---------- */
@@ -758,4 +772,210 @@ function generateProductLocal() {
       }
     }
   }, 280);
+}
+
+
+/* ---------- STATUS FLEXÍVEL + REP ---------- */
+
+async function adminSetOrderStatus(orderId, newStatus) {
+  const order = state.allOrders.find(o => o.id === orderId);
+  if (!order || !newStatus) return;
+  const prev = order.status || 'in_transit';
+  if (prev === newStatus) return;
+
+  const now = Date.now();
+  const updates = {};
+  updates[`orders/${orderId}/status`] = newStatus;
+  updates[`orders/${orderId}/statusMessage`] = STATUS_MESSAGES[newStatus] || '';
+
+  if (newStatus === 'delivered') {
+    updates[`orders/${orderId}/deliveredAt`] = now;
+  }
+  if (newStatus === 'refunded') {
+    // devolve saldo
+    try {
+      const userSnap = await db.ref('users/' + order.userId + '/balance').once('value');
+      const bal = Number(userSnap.val()) || 0;
+      updates[`users/${order.userId}/balance`] = bal + (Number(order.price) || 0);
+    } catch (e) { console.warn(e); }
+  }
+
+  try {
+    const invSnap = await db.ref(`users/${order.userId}/inventory`).once('value');
+    const inv = invSnap.val() || {};
+    Object.entries(inv).forEach(([key, item]) => {
+      if (item.productId === order.productId && item.status === prev) {
+        updates[`users/${order.userId}/inventory/${key}/status`] = newStatus;
+        updates[`users/${order.userId}/inventory/${key}/statusMessage`] = STATUS_MESSAGES[newStatus] || '';
+        if (newStatus === 'delivered') {
+          updates[`users/${order.userId}/inventory/${key}/deliveredAt`] = now;
+        }
+      }
+    });
+
+    // reputação: só soma ao virar delivered (e ainda não tinha)
+    if (newStatus === 'delivered' && prev !== 'delivered') {
+      const uSnap = await db.ref('users/' + order.userId).once('value');
+      const u = uSnap.val() || {};
+      updates[`users/${order.userId}/repSpent`] = (Number(u.repSpent) || 0) + (Number(order.price) || 0);
+      updates[`users/${order.userId}/repOrders`] = (Number(u.repOrders) || 0) + 1;
+    }
+
+    await db.ref().update(updates);
+    pushAdminLog({ type: 'status', orderId, productName: order.productName, userName: order.userName, from: prev, to: newStatus });
+    showToast(`Status → ${STATUS_LABELS[newStatus] || newStatus}`);
+  } catch (err) {
+    console.error(err);
+    showToast('Erro ao atualizar status.', 'error');
+  }
+}
+
+/* ---------- CUPONS ADMIN ---------- */
+
+function renderAdminCoupons() {
+  const el = document.getElementById('admin-coupons-list');
+  if (!el) return;
+  const list = Object.entries(state.coupons || {}).map(([code, c]) => ({ code, ...c }));
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state">Nenhum cupom.</div>';
+    return;
+  }
+  el.innerHTML = `<div class="admin-table-wrap"><table class="admin-table">
+    <thead><tr><th>Código</th><th>Tipo</th><th>Valor</th><th>Usos</th><th>Rank mín.</th><th></th></tr></thead>
+    <tbody>
+      ${list.map(c => `
+        <tr>
+          <td class="mono">${escapeHTML(c.code)}</td>
+          <td>${c.type === 'percent' ? '%' : '$'}</td>
+          <td>${c.type === 'percent' ? c.value + '%' : formatMoney(c.value)}</td>
+          <td>${c.uses || 0}${c.maxUses != null ? ' / ' + c.maxUses : ''}</td>
+          <td>${c.minRank || '—'}</td>
+          <td><button class="btn btn-ghost btn-sm text-danger" onclick="adminDeleteCoupon('${escapeHTML(c.code)}')">Apagar</button></td>
+        </tr>
+      `).join('')}
+    </tbody></table></div>`;
+}
+
+async function adminCreateCoupon(e) {
+  e.preventDefault();
+  const code = document.getElementById('coupon-code').value.trim().toUpperCase();
+  const type = document.getElementById('coupon-type').value;
+  const value = parseFloat(document.getElementById('coupon-value').value);
+  const maxUses = document.getElementById('coupon-max').value;
+  const minRank = document.getElementById('coupon-rank').value || null;
+  if (!code || isNaN(value)) {
+    showToast('Código e valor obrigatórios.', 'error');
+    return;
+  }
+  try {
+    await db.ref('coupons/' + code).set({
+      type,
+      value,
+      uses: 0,
+      maxUses: maxUses === '' ? null : parseInt(maxUses, 10),
+      minRank,
+      createdAt: Date.now()
+    });
+    showToast('Cupom criado: ' + code);
+    e.target.reset();
+    pushFeed(`Código promocional ativo no núcleo GS.`, 'promo');
+  } catch (err) {
+    console.error(err);
+    showToast('Erro ao criar cupom.', 'error');
+  }
+}
+
+async function adminDeleteCoupon(code) {
+  if (!confirm('Apagar cupom ' + code + '?')) return;
+  await db.ref('coupons/' + code).remove();
+  showToast('Cupom removido.');
+}
+
+/* ---------- OFERTAS ADMIN ---------- */
+
+function renderAdminOffers() {
+  const el = document.getElementById('admin-offers-list');
+  if (!el) return;
+  const list = (state.offers || []).filter(o => o.status === 'pending' || o.status === 'counter');
+  const all = state.offers || [];
+  if (!all.length) {
+    el.innerHTML = '<div class="empty-state">Nenhuma oferta.</div>';
+    return;
+  }
+  el.innerHTML = `<div class="admin-table-wrap"><table class="admin-table">
+    <thead><tr><th>Jogador</th><th>Produto</th><th>Lista</th><th>Oferta</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      ${all.slice(0, 40).map(o => `
+        <tr>
+          <td>${escapeHTML(o.userName || '')}</td>
+          <td>${escapeHTML(o.productName || '')}</td>
+          <td class="mono">${formatMoney(o.listPrice)}</td>
+          <td class="mono">${formatMoney(o.amount)}${o.counterAmount ? ` → ${formatMoney(o.counterAmount)}` : ''}</td>
+          <td>${escapeHTML(o.status)}</td>
+          <td class="admin-actions-cell">
+            ${o.status === 'pending' ? `
+              <button class="btn btn-primary btn-sm" onclick="adminRespondOffer('${o.id}','accept')">Aceitar</button>
+              <button class="btn btn-ghost btn-sm" onclick="adminRespondOffer('${o.id}','counter')">Contra</button>
+              <button class="btn btn-ghost btn-sm text-danger" onclick="adminRespondOffer('${o.id}','reject')">Recusar</button>
+            ` : '—'}
+          </td>
+        </tr>
+      `).join('')}
+    </tbody></table></div>`;
+}
+
+/* ---------- LOG ADMIN ---------- */
+
+function renderAdminLog() {
+  const el = document.getElementById('admin-log-list');
+  if (!el) return;
+  const list = state.adminLog || [];
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state">Log vazio.</div>';
+    return;
+  }
+  el.innerHTML = list.slice(0, 80).map(e => `
+    <div class="log-row">
+      <span class="log-time">${formatDateTime(e.createdAt)}</span>
+      <span class="log-type">${escapeHTML(e.type || '')}</span>
+      <span class="log-body">${escapeHTML(
+        e.userName || ''
+      )} ${escapeHTML(e.productName || '')} ${e.total != null ? formatMoney(e.total) : ''} ${e.amount != null ? formatMoney(e.amount) : ''} ${e.from ? (e.from + '→' + e.to) : ''}</span>
+    </div>
+  `).join('');
+}
+
+/* ---------- ACESSO SUBSOLO ---------- */
+
+async function adminToggleBlackMarket(e) {
+  e.preventDefault();
+  const input = document.getElementById('admin-bm-user').value.trim();
+  const grant = document.getElementById('admin-bm-grant').value === 'true';
+  if (!input) return;
+  try {
+    let uid = input;
+    if (input.includes('@')) {
+      const snap = await db.ref('users').orderByChild('email').equalTo(input).once('value');
+      const users = snap.val();
+      if (!users) { showToast('Usuário não encontrado.', 'error'); return; }
+      uid = Object.keys(users)[0];
+    }
+    await db.ref(`users/${uid}/blackMarketAccess`).set(grant);
+    pushAdminLog({ type: 'blackmarket', userId: uid, grant });
+    pushFeed(grant ? 'Novo contato liberado no subsolo.' : 'Acesso ao subsolo revogado.', 'system');
+    showToast(grant ? 'Acesso ao Subsolo liberado.' : 'Acesso removido.');
+    e.target.reset();
+  } catch (err) {
+    console.error(err);
+    showToast('Erro ao atualizar acesso.', 'error');
+  }
+}
+
+async function adminPostFeed(e) {
+  e.preventDefault();
+  const text = document.getElementById('admin-feed-text').value.trim();
+  if (!text) return;
+  await pushFeed(text, 'admin');
+  showToast('Feed publicado.');
+  e.target.reset();
 }

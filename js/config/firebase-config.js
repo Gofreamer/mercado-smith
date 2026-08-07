@@ -13,8 +13,8 @@ const firebaseConfig = {
 // Inicializa o Firebase (versão compat)
 firebase.initializeApp(firebaseConfig);
 
-// App Check desativado de propósito (erros de reCAPTCHA / não queremos ele ligado)
-// Se no futuro precisar do Firebase AI Logic, reative aqui + no firebase-ai.js
+// App Check NÃO é ativado no app principal (mesmo padrão do Jet League).
+// A IA usa o módulo firebase-ai.js e só liga App Check se APP_CHECK_SITE_KEY estiver preenchida.
 
 const auth = firebase.auth();
 const db = firebase.database();

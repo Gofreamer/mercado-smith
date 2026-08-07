@@ -9,16 +9,19 @@ auth.onAuthStateChanged(async (user) => {
     listenUserProfile(user.uid);
     listenProducts();
     listenOrders(user.uid);
-    // allOrders será ligado quando isAdmin for detectado em updateAdminVisibility
+    listenFeed();
     showView('market');
   } else {
     state.user = null;
     state.profile = null;
     state.cart = {};
     state.allOrders = [];
+    state.wishlist = {};
+    state.appliedCoupon = null;
     updateCartBadge();
     closeCart();
     closeProductModal();
+    document.body.classList.remove('theme-blackmarket');
     showAuthScreen();
   }
 });

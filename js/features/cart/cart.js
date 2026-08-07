@@ -179,10 +179,35 @@ function renderCart() {
     `;
   }).join('');
 
+  const subtotal = getCartTotal();
+  let discount = 0;
+  if (state.appliedCoupon && state.appliedCouponData) {
+    discount = calcCouponDiscount(subtotal, state.appliedCouponData);
+  }
   const totalEl = document.getElementById('cart-total-value');
   const countEl = document.getElementById('cart-count-label');
-  if (totalEl) totalEl.textContent = formatMoney(getCartTotal());
+  const discountEl = document.getElementById('cart-discount-row');
+  const discountVal = document.getElementById('cart-discount-value');
+  if (totalEl) totalEl.textContent = formatMoney(Math.max(0, subtotal - discount));
   if (countEl) countEl.textContent = `${getCartCount()} item${getCartCount() !== 1 ? 's' : ''}`;
+  if (discountEl && discountVal) {
+    if (discount > 0) {
+      discountEl.classList.remove('hidden');
+      discountVal.textContent = '- ' + formatMoney(discount);
+    } else {
+      discountEl.classList.add('hidden');
+    }
+  }
+  const applied = document.getElementById('cart-coupon-applied');
+  if (applied) {
+    if (state.appliedCoupon) {
+      applied.classList.remove('hidden');
+      applied.innerHTML = `Cupom <strong>${escapeHTML(state.appliedCoupon)}</strong> <button class="btn btn-ghost btn-sm" onclick="clearCartCoupon()">Remover</button>`;
+    } else {
+      applied.classList.add('hidden');
+      applied.innerHTML = '';
+    }
+  }
 }
 
 async function checkoutCart() {

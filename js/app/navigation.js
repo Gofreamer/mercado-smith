@@ -1,6 +1,12 @@
 /* Global Smith — Navigation */
 
 function showView(viewName) {
+  // gate black market
+  if (viewName === 'blackmarket' && !hasBlackMarketAccess()) {
+    showToast('Acesso ao Subsolo negado.', 'error');
+    viewName = 'market';
+  }
+
   state.currentView = viewName;
 
   document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
@@ -11,22 +17,28 @@ function showView(viewName) {
     btn.classList.toggle('active', btn.dataset.view === viewName);
   });
 
-  // Hero só no mercado
+  // Theme swap for black market
+  document.body.classList.toggle('theme-blackmarket', viewName === 'blackmarket');
+
   const hero = document.getElementById('hero-banner');
   if (hero) {
     hero.classList.toggle('hidden', viewName !== 'market');
   }
 
-  // Fecha menu mobile
   closeMobileNav();
 
   if (viewName === 'market') renderProducts();
+  if (viewName === 'blackmarket') renderBlackMarket();
   if (viewName === 'inventory') renderInventory();
   if (viewName === 'orders') renderOrders();
   if (viewName === 'profile') renderProfile();
+  if (viewName === 'wishlist') renderWishlist();
   if (viewName === 'admin') {
     renderAdminProducts();
     renderAdminOrders();
+    if (typeof renderAdminCoupons === 'function') renderAdminCoupons();
+    if (typeof renderAdminOffers === 'function') renderAdminOffers();
+    if (typeof renderAdminLog === 'function') renderAdminLog();
   }
 }
 

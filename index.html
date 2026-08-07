@@ -80,13 +80,16 @@
 
       <nav class="nav" id="main-nav">
         <button class="nav-item active" data-view="market" onclick="showView('market')">Mercado</button>
+        <button class="nav-item nav-bm hidden" id="nav-blackmarket" data-view="blackmarket" onclick="showView('blackmarket')">Subsolo</button>
         <button class="nav-item" data-view="inventory" onclick="showView('inventory')">Inventário</button>
         <button class="nav-item" data-view="orders" onclick="showView('orders')">Pedidos</button>
+        <button class="nav-item" data-view="wishlist" onclick="showView('wishlist')">Desejos</button>
         <button class="nav-item" data-view="profile" onclick="showView('profile')">Perfil</button>
         <button class="nav-item admin-only hidden" data-view="admin" onclick="showView('admin')">Admin</button>
       </nav>
 
       <div class="header-right">
+        <span class="header-rank hidden" id="header-rank" title="Rank Global Smith"></span>
         <button class="cart-btn" id="cart-btn" onclick="toggleCart()" title="Carrinho" aria-label="Abrir carrinho">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
@@ -131,9 +134,39 @@
             </select>
           </div>
         </div>
+        <div id="market-feed" class="market-feed"></div>
         <div id="category-chips" class="category-chips"></div>
         <div id="products-grid" class="products-grid">
           <div class="empty-state">Carregando produtos...</div>
+        </div>
+      </section>
+
+      <!-- VIEW: Subsolo / Mercado Negro -->
+      <section id="view-blackmarket" class="view hidden">
+        <div class="bm-banner">
+          <div class="bm-banner-inner">
+            <h2>Subsolo</h2>
+            <p>Setor irregular · sem suporte · sem rastreio oficial</p>
+          </div>
+        </div>
+        <div class="view-header">
+          <h2 class="bm-title">Catálogo restrito</h2>
+          <div class="view-actions">
+            <input type="search" id="bm-search-input" class="search-input" placeholder="Buscar no subsolo..." oninput="filterBlackMarket()"/>
+          </div>
+        </div>
+        <div id="bm-products-grid" class="products-grid">
+          <div class="empty-state">Carregando...</div>
+        </div>
+      </section>
+
+      <!-- VIEW: Desejos -->
+      <section id="view-wishlist" class="view hidden">
+        <div class="view-header">
+          <h2>Lista de Desejos</h2>
+        </div>
+        <div id="wishlist-list" class="wishlist-list">
+          <div class="empty-state">Carregando...</div>
         </div>
       </section>
 
@@ -177,6 +210,10 @@
           <button class="admin-tab active" onclick="switchAdminTab('products', this)">Produtos</button>
           <button class="admin-tab" onclick="switchAdminTab('orders', this)">Pedidos / Entregas</button>
           <button class="admin-tab" onclick="switchAdminTab('balance', this)">Saldo</button>
+          <button class="admin-tab" onclick="switchAdminTab('access', this)">Acessos</button>
+          <button class="admin-tab" onclick="switchAdminTab('coupons', this)">Cupons</button>
+          <button class="admin-tab" onclick="switchAdminTab('offers', this)">Ofertas</button>
+          <button class="admin-tab" onclick="switchAdminTab('log', this)">Log</button>
         </div>
 
         <!-- Tab: Produtos -->
@@ -267,6 +304,16 @@
                     <input type="number" id="admin-product-delivery" min="0" value="0"/>
                   </div>
                 </div>
+                <div class="form-group">
+                  <label>Item secreto (rank mínimo)</label>
+                  <select id="admin-product-secret">
+                    <option value="">Público</option>
+                    <option value="prata">Prata+</option>
+                    <option value="ouro">Ouro+</option>
+                    <option value="platina">Platina+</option>
+                    <option value="executivo">Executivo</option>
+                  </select>
+                </div>
                 <div class="form-actions">
                   <button type="submit" class="btn btn-primary" id="admin-product-submit">Adicionar Produto</button>
                   <button type="button" class="btn btn-ghost hidden" id="admin-product-cancel" onclick="adminResetProductForm()">Cancelar</button>
@@ -306,6 +353,107 @@
             </form>
           </div>
         </div>
+
+        <!-- Tab: Acessos -->
+        <div id="admin-tab-access" class="admin-tab-panel hidden">
+          <div class="admin-split">
+            <div class="admin-card" style="max-width:420px">
+              <h3>Acesso ao Subsolo</h3>
+              <p class="text-muted admin-hint">Libera a aba Mercado Negro para o jogador.</p>
+              <form onsubmit="adminToggleBlackMarket(event)">
+                <div class="form-group">
+                  <label>UID ou E-mail</label>
+                  <input type="text" id="admin-bm-user" required placeholder="UID ou email"/>
+                </div>
+                <div class="form-group">
+                  <label>Ação</label>
+                  <select id="admin-bm-grant">
+                    <option value="true">Liberar acesso</option>
+                    <option value="false">Revogar acesso</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Aplicar</button>
+              </form>
+            </div>
+            <div class="admin-card">
+              <h3>Publicar no feed do mercado</h3>
+              <form onsubmit="adminPostFeed(event)">
+                <div class="form-group">
+                  <label>Mensagem</label>
+                  <input type="text" id="admin-feed-text" required maxlength="140" placeholder="Ex: Novo lote de passes VIP chegou."/>
+                </div>
+                <button type="submit" class="btn btn-primary">Publicar</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Cupons -->
+        <div id="admin-tab-coupons" class="admin-tab-panel hidden">
+          <div class="admin-split">
+            <div class="admin-card">
+              <h3>Criar cupom</h3>
+              <form onsubmit="adminCreateCoupon(event)">
+                <div class="form-group">
+                  <label>Código</label>
+                  <input type="text" id="coupon-code" required placeholder="NINA-VIP" style="text-transform:uppercase"/>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Tipo</label>
+                    <select id="coupon-type">
+                      <option value="percent">Porcentagem</option>
+                      <option value="fixed">Valor fixo ($)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Valor</label>
+                    <input type="number" id="coupon-value" min="0" step="0.01" required/>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Máx. usos (vazio = ∞)</label>
+                    <input type="number" id="coupon-max" min="1"/>
+                  </div>
+                  <div class="form-group">
+                    <label>Rank mínimo</label>
+                    <select id="coupon-rank">
+                      <option value="">Qualquer</option>
+                      <option value="prata">Prata</option>
+                      <option value="ouro">Ouro</option>
+                      <option value="platina">Platina</option>
+                      <option value="executivo">Executivo</option>
+                    </select>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Criar cupom</button>
+              </form>
+            </div>
+            <div class="admin-card admin-card-wide">
+              <h3>Cupons ativos</h3>
+              <div id="admin-coupons-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Ofertas -->
+        <div id="admin-tab-offers" class="admin-tab-panel hidden">
+          <div class="admin-card admin-card-wide">
+            <h3>Negociações / Ofertas</h3>
+            <p class="text-muted admin-hint">Jogadores Platina+ podem ofertar. Aceitar debita e entrega automaticamente.</p>
+            <div id="admin-offers-list"></div>
+          </div>
+        </div>
+
+        <!-- Tab: Log -->
+        <div id="admin-tab-log" class="admin-tab-panel hidden">
+          <div class="admin-card admin-card-wide">
+            <h3>Log do mestre</h3>
+            <p class="text-muted admin-hint">Compras, ofertas, mudanças de status e acessos.</p>
+            <div id="admin-log-list" class="admin-log-list"></div>
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -329,6 +477,15 @@
       <!-- items -->
     </div>
     <div id="cart-footer" class="cart-footer hidden">
+      <div class="cart-coupon">
+        <input type="text" id="cart-coupon-input" class="search-input" placeholder="Código GS" style="text-transform:uppercase"/>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="applyCartCoupon()">Aplicar</button>
+      </div>
+      <div id="cart-coupon-applied" class="cart-coupon-applied hidden"></div>
+      <div id="cart-discount-row" class="cart-total-row hidden">
+        <span>Desconto</span>
+        <span id="cart-discount-value" class="success">$ 0.00</span>
+      </div>
       <div class="cart-summary">
         <span id="cart-count-label">0 itens</span>
         <span class="cart-total-label">Total</span>
@@ -355,6 +512,7 @@
   <script src="./js/features/inventory/inventory.js"></script>
   <script src="./js/features/profile/profile.js"></script>
   <script src="./js/features/admin/admin.js"></script>
+  <script src="./js/features/systems/extras.js"></script>
   <script src="./js/app/start.js"></script>
   <script type="module" src="./js/features/admin/firebase-ai.js"></script>
 </body>
