@@ -12,6 +12,7 @@ auth.onAuthStateChanged(async (user) => {
     listenFeed();
     listenOffers();
     listenEvents();
+    listenVendors();
     showView('market');
   } else {
     state.user = null;

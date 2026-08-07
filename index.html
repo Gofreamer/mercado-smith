@@ -130,16 +130,26 @@
               <option value="price-desc">Maior preço</option>
               <option value="newest">Mais recentes</option>
             </select>
+            <select id="vendor-filter" class="select" onchange="selectVendor(this.value)">
+              <option value="">Todas as vitrines</option>
+            </select>
             <select id="category-filter" class="select select-hidden" onchange="filterProducts()">
               <option value="">Todas as categorias</option>
             </select>
           </div>
         </div>
         <div id="event-banner" class="event-banner hidden"></div>
-        <div id="market-feed" class="market-feed"></div>
-        <div id="category-chips" class="category-chips"></div>
-        <div id="products-grid" class="products-grid">
-          <div class="empty-state">Sincronizando catálogo GS...</div>
+        <div class="market-layout">
+          <aside id="market-col-feed" class="market-col market-col-feed" aria-label="Canal GS"></aside>
+          <div class="market-col market-col-main">
+            <div id="market-feed" class="market-feed market-feed-mobile"></div>
+            <div id="vendor-chips" class="category-chips vendor-chips"></div>
+            <div id="category-chips" class="category-chips"></div>
+            <div id="products-grid" class="products-grid">
+              <div class="empty-state">Sincronizando catálogo GS...</div>
+            </div>
+          </div>
+          <aside id="market-col-post" class="market-col market-col-post" aria-label="Seu posto"></aside>
         </div>
       </section>
 
@@ -229,6 +239,7 @@
           <button class="admin-tab" onclick="switchAdminTab('coupons', this)">Cupons</button>
           <button class="admin-tab" onclick="switchAdminTab('offers', this)">Negociações</button>
           <button class="admin-tab" onclick="switchAdminTab('events', this)">Eventos</button>
+          <button class="admin-tab" onclick="switchAdminTab('vendors', this)">Vitrines</button>
           <button class="admin-tab" onclick="switchAdminTab('log', this)">Log</button>
         </div>
 
@@ -328,6 +339,12 @@
                     <option value="ouro">Ouro+</option>
                     <option value="platina">Platina+</option>
                     <option value="executivo">Executivo</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Vitrine / vendedor NPC</label>
+                  <select id="admin-product-vendor">
+                    <option value="">Global Smith (padrão)</option>
                   </select>
                 </div>
                 <div class="form-actions">
@@ -604,12 +621,77 @@
                   <label>IDs dos produtos</label>
                   <textarea id="event-products" rows="2" placeholder="id1, id2, id3"></textarea>
                 </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Gerar cupom automático</label>
+                    <select id="event-auto-coupon">
+                      <option value="false">Não</option>
+                      <option value="true">Sim</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Código do cupom</label>
+                    <input type="text" id="event-coupon-code" placeholder="NINA15 (vazio = gera)" style="text-transform:uppercase"/>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Desconto do cupom %</label>
+                  <input type="number" id="event-coupon-percent" min="0" max="90" step="1" value="0" placeholder="Se 0, usa o % do evento"/>
+                </div>
                 <button type="submit" class="btn btn-primary">Salvar evento</button>
               </form>
             </div>
             <div class="admin-card admin-card-wide">
               <h3>Eventos</h3>
               <div id="admin-events-list"></div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- Tab: Vitrines -->
+        <div id="admin-tab-vendors" class="admin-tab-panel hidden">
+          <div class="admin-layout">
+            <div class="admin-card">
+              <h3 id="vendor-form-title">Nova vitrine</h3>
+              <p class="text-muted admin-hint">NPCs de prateleira: Smith, Courier, Nina Riders Merch…</p>
+              <div class="admin-card" style="margin-bottom:14px;padding:12px;background:rgba(0,0,0,0.15)">
+                <label class="text-muted" style="font-size:12px">Gerar com ideia</label>
+                <input type="text" id="vendor-ai-idea" class="search-input" placeholder="Ex: merch oficial Nina Riders" style="width:100%;margin:6px 0"/>
+                <input type="text" id="vendor-ai-tone" class="search-input" placeholder="Tom: premium, show, underground…" style="width:100%;margin-bottom:8px"/>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <button type="button" class="btn btn-primary btn-sm" onclick="generateVendorLocal()">Gerar local</button>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="generateVendorWithAI()">Gerar com IA</button>
+                </div>
+              </div>
+              <form id="admin-vendor-form" onsubmit="adminSaveVendor(event)">
+                <input type="hidden" id="vendor-edit-id" value=""/>
+                <div class="form-group">
+                  <label>Nome</label>
+                  <input type="text" id="vendor-name" required placeholder="Nina Riders Merch"/>
+                </div>
+                <div class="form-group">
+                  <label>Slug</label>
+                  <input type="text" id="vendor-slug" placeholder="nina-riders"/>
+                </div>
+                <div class="form-group">
+                  <label>Tagline</label>
+                  <input type="text" id="vendor-tagline" placeholder="Oficial da turnê"/>
+                </div>
+                <div class="form-group">
+                  <label>Tom</label>
+                  <input type="text" id="vendor-tone" placeholder="show / premium / underground"/>
+                </div>
+                <div class="form-group">
+                  <label>Descrição</label>
+                  <textarea id="vendor-desc" rows="2"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Salvar vitrine</button>
+              </form>
+            </div>
+            <div class="admin-card admin-card-wide">
+              <h3>Vitrines</h3>
+              <div id="admin-vendors-list"></div>
             </div>
           </div>
         </div>

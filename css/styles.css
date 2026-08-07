@@ -2959,3 +2959,99 @@ body.theme-blackmarket .brand {
 .btn-danger:hover {
   background: rgba(239, 68, 68, 1);
 }
+
+
+/* ========== MARKET 3-COL DESKTOP ========== */
+.market-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.market-col-feed,
+.market-col-post {
+  display: none;
+}
+.market-feed-mobile { display: block; }
+@media (min-width: 1200px) {
+  .main {
+    max-width: 1480px;
+  }
+  .market-layout {
+    grid-template-columns: 220px minmax(0, 1fr) 240px;
+    gap: 18px;
+  }
+  .market-col-feed,
+  .market-col-post {
+    display: block;
+    position: sticky;
+    top: 72px;
+  }
+  .market-feed-mobile { display: none; }
+}
+@media (min-width: 1600px) {
+  .main { max-width: 1680px; }
+  .market-layout {
+    grid-template-columns: 240px minmax(0, 1fr) 260px;
+  }
+  .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+.market-side-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+.market-side-title {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.market-col-feed .feed-item {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.market-col-feed .feed-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+.post-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.post-stat:last-of-type { border-bottom: none; }
+.post-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.product-vendor {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.modal-vendor {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 6px 0;
+}
+.event-banner-coupon {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--border);
+}
+.vendor-chips { margin-bottom: 8px; }

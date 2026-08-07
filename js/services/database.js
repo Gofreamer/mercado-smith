@@ -11,6 +11,7 @@ function listenUserProfile(uid) {
     if (state.currentView === 'profile') renderProfile();
     if (state.currentView === 'wishlist') renderWishlist();
     if (state.currentView === 'bank' && typeof renderBank === 'function') renderBank();
+    if (state.currentView === 'market' && typeof renderMarketSidePanels === 'function') renderMarketSidePanels();
     if (state.currentView === 'blackmarket') renderBlackMarket();
   });
 }
@@ -27,6 +28,15 @@ function listenProducts() {
     if (state.currentView === 'admin') renderAdminProducts();
     if (state.currentView === 'wishlist') renderWishlist();
     if (state.cartOpen) renderCart();
+  });
+}
+
+function listenVendors() {
+  db.ref('vendors').on('value', (snap) => {
+    state.vendors = snap.val() || {};
+    if (state.currentView === 'market') renderProducts();
+    if (state.currentView === 'admin' && typeof renderAdminVendors === 'function') renderAdminVendors();
+    if (typeof fillVendorSelects === 'function') fillVendorSelects();
   });
 }
 
@@ -79,6 +89,7 @@ function listenFeed() {
       .map(([id, e]) => ({ id, ...e }))
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     renderMarketFeed();
+    if (typeof renderMarketSidePanels === 'function') renderMarketSidePanels();
   });
 }
 
@@ -455,6 +466,7 @@ function updateAdminVisibility() {
     listenAdminLog();
     listenEvents();
     if (typeof listenLoanRequests === 'function') listenLoanRequests();
+    listenVendors();
   }
   if (isAdmin && (!state.allUsers || Object.keys(state.allUsers).length === 0)) {
     listenAllUsers();

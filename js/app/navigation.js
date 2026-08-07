@@ -40,6 +40,7 @@ function showView(viewName) {
     if (typeof renderAdminCoupons === 'function') renderAdminCoupons();
     if (typeof renderAdminOffers === 'function') renderAdminOffers();
     if (typeof renderAdminEvents === 'function') renderAdminEvents();
+    if (typeof renderAdminVendors === 'function') renderAdminVendors();
     if (typeof renderAdminLoans === 'function') renderAdminLoans();
     if (typeof renderAdminLog === 'function') renderAdminLog();
   }

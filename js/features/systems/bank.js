@@ -8,6 +8,7 @@ const RP_SPEND_CATEGORIES = {
   favor: 'Favor / propina',
   hospedagem: 'Hospedagem',
   diversao: 'Diversão',
+  transferencia: 'Transferência',
   outros: 'Outros'
 };
 
@@ -211,7 +212,7 @@ function renderBank() {
       <div class="bank-side">
         <div class="bank-panel">
           <h3>Gasto no cartão</h3>
-          <p class="text-muted bank-hint">Despesas do personagem fora do mercado: transporte, entrada, propina, hotel…</p>
+          <p class="text-muted bank-hint">Despesas fora do mercado ou transferência a NPC/pessoa: transporte, propina, pagamento a July…</p>
           ${!cardOk ? `
             <div class="loan-pending">
               <p>Cartão <strong>${cardStatusLabel(cardStatus)}</strong>. Gastos no cartão estão bloqueados.</p>
@@ -229,7 +230,7 @@ function renderBank() {
               </div>
               <div class="form-group">
                 <label>Descrição</label>
-                <input type="text" id="rp-spend-desc" maxlength="120" required placeholder="Ex: táxi até o porto / entrada do clube"/>
+                <input type="text" id="rp-spend-desc" maxlength="120" required placeholder="Ex: táxi ao porto · transferência para July"/>
               </div>
               <button type="submit" class="btn btn-primary btn-full">Debitar no cartão</button>
             </form>

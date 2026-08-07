@@ -84,6 +84,11 @@ function getFilteredProducts(opts = {}) {
     products = products.filter(p => p.category === category);
   }
 
+  const vendorId = state.vendorFilter || document.getElementById('vendor-filter')?.value || '';
+  if (vendorId && !blackOnly) {
+    products = products.filter(p => p.vendorId === vendorId);
+  }
+
   products.sort((a, b) => {
     const aOut = (a.stock !== null && a.stock !== undefined && a.stock <= 0) ? 1 : 0;
     const bOut = (b.stock !== null && b.stock !== undefined && b.stock <= 0) ? 1 : 0;
@@ -151,7 +156,7 @@ function productCardHTML(p, opts = {}) {
       ${secretBadge}${illegalBadge}${eventBadges}
       ${imgHtml}
       <div class="product-body">
-        <div class="product-category">${escapeHTML(CATEGORY_LABELS[p.category] || p.category || '')}</div>
+        <div class="product-category">${escapeHTML(CATEGORY_LABELS[p.category] || p.category || '')}${p.vendorId && state.vendors?.[p.vendorId] ? ` · <span class="product-vendor">${escapeHTML(state.vendors[p.vendorId].name)}</span>` : ''}</div>
         <div class="product-name">${escapeHTML(p.name)}</div>
         <div class="product-desc">${escapeHTML(p.description || '')}</div>
         <div class="product-delivery">${deliveryText}</div>
@@ -212,6 +217,8 @@ function renderProducts() {
   }
 
   if (typeof renderEventBanner === 'function') renderEventBanner();
+  if (typeof renderVendorChips === 'function') renderVendorChips();
+  if (typeof renderMarketSidePanels === 'function') renderMarketSidePanels();
   grid.innerHTML = products.map(p => productCardHTML(p)).join('');
 }
 
@@ -286,6 +293,7 @@ function openProductModal(productId) {
         ${eventTags.map(t => `<span class="event-tag" style="--event-color:${escapeHTML(t.color)}">${escapeHTML(t.label)}</span>`).join(' ')}
         ${priceBlock}
         <p class="modal-product-desc">${escapeHTML(p.description || 'Sem descrição nos registros GS.')}</p>
+        ${p.vendorId && state.vendors?.[p.vendorId] ? `<p class="modal-vendor">Vitrine: <strong>${escapeHTML(state.vendors[p.vendorId].name)}</strong>${state.vendors[p.vendorId].tagline ? ` · ${escapeHTML(state.vendors[p.vendorId].tagline)}` : ''}</p>` : ''}
         ${p.secretRank ? `<p class="modal-secret">🔒 Rank mínimo: ${RANK_THRESHOLDS.find(r => r.id === p.secretRank)?.label || p.secretRank}</p>` : ''}
         ${p.category === 'ilegais' ? `<p class="modal-illegal">⚠ Aquisição irregular — sem suporte oficial.</p>` : ''}
         <div class="modal-meta">
@@ -354,4 +362,54 @@ function renderBlackMarket() {
 
 function filterBlackMarket() {
   renderBlackMarket();
+}
+
+
+function renderMarketSidePanels() {
+  const feedCol = document.getElementById('market-col-feed');
+  const postCol = document.getElementById('market-col-post');
+  if (feedCol) {
+    const items = (state.feed || []).slice(0, 10);
+    feedCol.innerHTML = `
+      <div class="market-side-card">
+        <h3 class="market-side-title">Canal GS</h3>
+        ${items.length ? items.map(e => `
+          <div class="feed-item feed-${escapeHTML(e.type || 'info')}">
+            <span class="feed-time">${timeAgo(e.createdAt)}</span>
+            <span class="feed-text">${escapeHTML(e.text)}</span>
+          </div>
+        `).join('') : '<p class="text-muted" style="font-size:12px">Mercado em silêncio…</p>'}
+      </div>
+    `;
+  }
+  if (postCol && state.profile) {
+    const rank = getUserRank(state.profile, state.orders);
+    const bal = Number(state.profile.balance) || 0;
+    const inv = state.profile.inventory || {};
+    const inTransit = Object.values(inv).filter(i => {
+      const s = i.status || 'delivered';
+      return s === 'in_transit' || s === 'held_customs' || s === 'resent';
+    }).length;
+    const wishes = Object.keys(state.wishlist || {}).length;
+    const pendingOffers = (state.offers || []).filter(o =>
+      o.userId === state.user?.uid && (o.status === 'pending' || o.status === 'counter')
+    ).length;
+    postCol.innerHTML = `
+      <div class="market-side-card">
+        <h3 class="market-side-title">Seu posto</h3>
+        <div class="post-stat"><span>Saldo</span><strong class="success">${formatMoney(bal)}</strong></div>
+        <div class="post-stat"><span>Rank</span><strong style="color:${rank.color}">${rank.label}</strong></div>
+        <div class="post-stat"><span>Em trânsito</span><strong class="${inTransit ? 'warning' : ''}">${inTransit}</strong></div>
+        <div class="post-stat"><span>Desejos</span><strong>${wishes}</strong></div>
+        ${pendingOffers ? `<div class="post-stat"><span>Negociações</span><strong>${pendingOffers}</strong></div>` : ''}
+        <div class="post-actions">
+          <button class="btn btn-ghost btn-sm" onclick="showView('bank')">Banco</button>
+          <button class="btn btn-ghost btn-sm" onclick="showView('orders')">Pedidos</button>
+          <button class="btn btn-ghost btn-sm" onclick="showView('wishlist')">Desejos</button>
+        </div>
+      </div>
+    `;
+  } else if (postCol) {
+    postCol.innerHTML = '';
+  }
 }

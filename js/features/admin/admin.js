@@ -91,6 +91,11 @@ function adminEditProduct(id) {
     p.deliveryDays > 0 ? p.deliveryDays : 0;
   const sec = document.getElementById('admin-product-secret');
   if (sec) sec.value = p.secretRank || '';
+  const vend = document.getElementById('admin-product-vendor');
+  if (vend) {
+    if (typeof fillVendorSelects === 'function') fillVendorSelects();
+    vend.value = p.vendorId || '';
+  }
 
   document.getElementById('admin-product-form-title').textContent = 'Editar Produto';
   document.getElementById('admin-product-submit').textContent = 'Salvar alterações';
@@ -116,6 +121,7 @@ async function adminSaveProduct(e) {
   }
 
   const secretRank = document.getElementById('admin-product-secret')?.value || '';
+  const vendorId = document.getElementById('admin-product-vendor')?.value || '';
 
   const product = {
     name,
@@ -126,6 +132,7 @@ async function adminSaveProduct(e) {
     stock: stockRaw === '' ? null : parseInt(stockRaw, 10),
     deliveryDays: deliveryDays > 0 ? deliveryDays : 0,
     secretRank: secretRank || null,
+    vendorId: vendorId || null,
     createdAt: state.editingProductId
       ? (state.products[state.editingProductId]?.createdAt || Date.now())
       : Date.now(),
@@ -354,11 +361,12 @@ function switchAdminTab(tab, btn) {
   document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('admin-tab-' + tab)?.classList.remove('hidden');
   if (btn) btn.classList.add('active');
-  if (tab === 'products') renderAdminProducts();
+  if (tab === 'products') { renderAdminProducts(); if (typeof fillVendorSelects === 'function') fillVendorSelects(); }
   if (tab === 'orders') renderAdminOrders();
   if (tab === 'coupons') renderAdminCoupons();
   if (tab === 'offers') renderAdminOffers();
   if (tab === 'events') renderAdminEvents();
+  if (tab === 'vendors') { renderAdminVendors(); fillVendorSelects(); }
   if (tab === 'loans') renderAdminLoans();
   if (tab === 'cards') { /* form only */ }
   if (tab === 'log') renderAdminLog();

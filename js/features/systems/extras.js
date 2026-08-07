@@ -572,11 +572,20 @@ function renderEventBanner() {
   }
   const ev = active[0];
   el.classList.remove('hidden');
+  const couponBit = ev.couponCode
+    ? `<span class="event-banner-coupon">Cupom <strong>${escapeHTML(ev.couponCode)}</strong>${ev.couponPercent ? ` · −${ev.couponPercent}%` : ''}</span>`
+    : '';
+  const discBit = ev.discountPercent
+    ? `<span class="event-banner-ends">−${ev.discountPercent}% nos itens marcados</span>`
+    : '';
   el.innerHTML = `
     <div class="event-banner-inner" style="--event-color:${escapeHTML(ev.tagColor || '#e11d48')}">
       <span class="event-banner-tag">${escapeHTML(ev.tagLabel || ev.name)}</span>
       <span class="event-banner-text">${escapeHTML(ev.bannerText || ev.description || ev.name)}</span>
+      ${couponBit}
+      ${discBit}
       ${ev.endsAt ? `<span class="event-banner-ends">até ${formatDate(ev.endsAt)}</span>` : ''}
+      ${ev.couponCode ? `<button type="button" class="btn btn-ghost btn-sm" onclick="applyEventCoupon('${escapeHTML(ev.couponCode)}')">Aplicar cupom</button>` : ''}
     </div>
   `;
 }
@@ -639,6 +648,15 @@ async function adminSaveEvent(e) {
     ? productIdsRaw.split(/[\s,]+/).map(s => s.trim()).filter(Boolean)
     : [];
   const active = document.getElementById('event-active').value === 'true';
+  const autoCoupon = document.getElementById('event-auto-coupon')?.value === 'true';
+  let couponCode = (document.getElementById('event-coupon-code')?.value || '').trim().toUpperCase();
+  const couponPercent = parseFloat(document.getElementById('event-coupon-percent')?.value) || discountPercent || 0;
+  if (autoCoupon && !couponCode) {
+    couponCode = (tagLabel || name).replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase() + String(Math.floor(Math.random()*90)+10);
+  }
+
+  const startsAt = startsRaw ? new Date(startsRaw).getTime() : Date.now();
+  const endsAt = endsRaw ? new Date(endsRaw).getTime() : (Date.now() + 7 * 24 * 60 * 60 * 1000);
 
   const data = {
     name,
@@ -649,8 +667,11 @@ async function adminSaveEvent(e) {
     discountPercent,
     productIds,
     active,
-    startsAt: startsRaw ? new Date(startsRaw).getTime() : Date.now(),
-    endsAt: endsRaw ? new Date(endsRaw).getTime() : (Date.now() + 7 * 24 * 60 * 60 * 1000),
+    autoCoupon,
+    couponCode: autoCoupon ? couponCode : (couponCode || null),
+    couponPercent: autoCoupon ? couponPercent : null,
+    startsAt,
+    endsAt,
     updatedAt: Date.now()
   };
   if (!document.getElementById('event-edit-id').value) {
@@ -659,11 +680,29 @@ async function adminSaveEvent(e) {
 
   try {
     await db.ref('events/' + id).update(data);
-    showToast('Evento salvo.');
-    if (active) pushFeed(bannerText || `${name} está no ar.`, 'admin');
+    if (autoCoupon && couponCode) {
+      await db.ref('coupons/' + couponCode).update({
+        type: 'percent',
+        value: couponPercent || discountPercent || 10,
+        expires: endsAt,
+        eventId: id,
+        label: name,
+        maxUses: null,
+        uses: (state.coupons?.[couponCode]?.uses) || 0,
+        updatedAt: Date.now()
+      });
+    }
+    showToast(autoCoupon && couponCode ? `Evento salvo · cupom ${couponCode}` : 'Evento salvo.');
+    if (active) {
+      const feedMsg = autoCoupon && couponCode
+        ? `${bannerText || name} · use ${couponCode}`
+        : (bannerText || `${name} está no ar.`);
+      pushFeed(feedMsg, 'admin');
+    }
     e.target.reset();
     document.getElementById('event-edit-id').value = '';
     document.getElementById('event-form-title').textContent = 'Novo evento';
+    if (document.getElementById('event-auto-coupon')) document.getElementById('event-auto-coupon').value = 'false';
     renderAdminEvents();
   } catch (err) {
     console.error(err);
@@ -683,6 +722,9 @@ function adminEditEvent(id) {
   document.getElementById('event-discount').value = ev.discountPercent || 0;
   document.getElementById('event-products').value = (ev.productIds || []).join(', ');
   document.getElementById('event-active').value = ev.active === false ? 'false' : 'true';
+  if (document.getElementById('event-auto-coupon')) document.getElementById('event-auto-coupon').value = ev.autoCoupon ? 'true' : 'false';
+  if (document.getElementById('event-coupon-code')) document.getElementById('event-coupon-code').value = ev.couponCode || '';
+  if (document.getElementById('event-coupon-percent')) document.getElementById('event-coupon-percent').value = ev.couponPercent || ev.discountPercent || 0;
   if (ev.startsAt) {
     document.getElementById('event-starts').value = new Date(ev.startsAt).toISOString().slice(0, 16);
   }
@@ -702,4 +744,206 @@ async function adminDeleteEvent(id) {
     console.error(e);
     showToast('Erro ao apagar.', 'error');
   }
+}
+
+
+async function applyEventCoupon(code) {
+  if (!code) return;
+  const input = document.getElementById('cart-coupon-input');
+  if (input) input.value = code;
+  if (typeof applyCartCoupon === 'function') {
+    if (!state.cartOpen && typeof openCart === 'function') openCart();
+    await applyCartCoupon();
+  } else {
+    showToast('Abra o carrinho e aplique: ' + code);
+  }
+}
+
+/* ========== VITRINES / VENDORS (NPC) ========== */
+
+function getVendor(id) {
+  if (!id) return null;
+  const v = state.vendors?.[id];
+  return v ? { id, ...v } : null;
+}
+
+function fillVendorSelects() {
+  const selects = [
+    document.getElementById('admin-product-vendor'),
+    document.getElementById('vendor-filter')
+  ].filter(Boolean);
+  const list = Object.entries(state.vendors || {})
+    .map(([id, v]) => ({ id, ...v }))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  selects.forEach(sel => {
+    const isFilter = sel.id === 'vendor-filter';
+    const cur = sel.value;
+    if (isFilter) {
+      sel.innerHTML = '<option value="">Todas as vitrines</option>' +
+        list.map(v => `<option value="${v.id}">${escapeHTML(v.name)}</option>`).join('');
+    } else {
+      sel.innerHTML = '<option value="">Global Smith (padrão)</option>' +
+        list.map(v => `<option value="${v.id}">${escapeHTML(v.name)}</option>`).join('');
+    }
+    if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+  });
+}
+
+function renderVendorChips() {
+  const el = document.getElementById('vendor-chips');
+  if (!el) return;
+  const vendors = Object.entries(state.vendors || {}).map(([id, v]) => ({ id, ...v }));
+  if (!vendors.length) {
+    el.innerHTML = '';
+    return;
+  }
+  const active = state.vendorFilter || '';
+  let html = `<button type="button" class="cat-chip ${active === '' ? 'active' : ''}" onclick="selectVendor('')">Todas</button>`;
+  vendors.forEach(v => {
+    html += `<button type="button" class="cat-chip ${active === v.id ? 'active' : ''}" onclick="selectVendor('${v.id}')">${escapeHTML(v.name)}</button>`;
+  });
+  el.innerHTML = html;
+}
+
+function selectVendor(id) {
+  state.vendorFilter = id || '';
+  const sel = document.getElementById('vendor-filter');
+  if (sel) sel.value = id || '';
+  renderVendorChips();
+  if (typeof renderProducts === 'function') renderProducts();
+}
+
+function renderAdminVendors() {
+  const el = document.getElementById('admin-vendors-list');
+  if (!el) return;
+  const list = Object.entries(state.vendors || {})
+    .map(([id, v]) => ({ id, ...v }))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state">Nenhuma vitrine. Crie Smith, Courier, Nina Riders…</div>';
+    return;
+  }
+  el.innerHTML = `<div class="admin-table-wrap"><table class="admin-table">
+    <thead><tr><th>Vitrine</th><th>Slug</th><th>Tom</th><th></th></tr></thead>
+    <tbody>
+      ${list.map(v => `
+        <tr>
+          <td>
+            <div class="admin-prod-name">${escapeHTML(v.name)}</div>
+            <div class="admin-prod-desc">${escapeHTML(v.tagline || '')}</div>
+          </td>
+          <td class="mono">${escapeHTML(v.slug || '')}</td>
+          <td>${escapeHTML(v.tone || '—')}</td>
+          <td class="admin-actions-cell">
+            <button class="btn btn-ghost btn-sm" onclick="adminEditVendor('${v.id}')">Editar</button>
+            <button class="btn btn-ghost btn-sm text-danger" onclick="adminDeleteVendor('${v.id}')">Apagar</button>
+          </td>
+        </tr>
+      `).join('')}
+    </tbody></table></div>`;
+}
+
+async function adminSaveVendor(e) {
+  e.preventDefault();
+  const id = document.getElementById('vendor-edit-id').value || generateId();
+  const name = document.getElementById('vendor-name').value.trim();
+  if (!name) {
+    showToast('Nome obrigatório.', 'error');
+    return;
+  }
+  let slug = (document.getElementById('vendor-slug').value || '').trim().toLowerCase();
+  if (!slug) slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const tagline = document.getElementById('vendor-tagline').value.trim();
+  const tone = document.getElementById('vendor-tone').value.trim();
+  const description = document.getElementById('vendor-desc').value.trim();
+  const data = {
+    name,
+    slug,
+    tagline,
+    tone,
+    description,
+    updatedAt: Date.now()
+  };
+  if (!document.getElementById('vendor-edit-id').value) data.createdAt = Date.now();
+  try {
+    await db.ref('vendors/' + id).update(data);
+    showToast('Vitrine salva.');
+    e.target.reset();
+    document.getElementById('vendor-edit-id').value = '';
+    document.getElementById('vendor-form-title').textContent = 'Nova vitrine';
+    renderAdminVendors();
+    fillVendorSelects();
+  } catch (err) {
+    console.error(err);
+    showToast('Erro ao salvar vitrine.', 'error');
+  }
+}
+
+function adminEditVendor(id) {
+  const v = state.vendors[id];
+  if (!v) return;
+  document.getElementById('vendor-edit-id').value = id;
+  document.getElementById('vendor-name').value = v.name || '';
+  document.getElementById('vendor-slug').value = v.slug || '';
+  document.getElementById('vendor-tagline').value = v.tagline || '';
+  document.getElementById('vendor-tone').value = v.tone || '';
+  document.getElementById('vendor-desc').value = v.description || '';
+  document.getElementById('vendor-form-title').textContent = 'Editar vitrine';
+}
+
+async function adminDeleteVendor(id) {
+  if (!confirm('Apagar esta vitrine? Produtos vinculados ficam sem vendedor.')) return;
+  try {
+    await db.ref('vendors/' + id).remove();
+    showToast('Vitrine removida.');
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao apagar.', 'error');
+  }
+}
+
+function generateVendorLocal() {
+  const idea = (document.getElementById('vendor-ai-idea')?.value || '').trim();
+  const tone = (document.getElementById('vendor-ai-tone')?.value || 'premium').trim() || 'premium';
+  if (!idea) {
+    showToast('Descreva a vitrine (ex: merch Nina Riders).', 'error');
+    return;
+  }
+  const name = idea.replace(/^(loja|vitrine|npc|de|da|do)\s+/i, '').trim();
+  const title = name.replace(/\b\w/g, c => c.toUpperCase()).slice(0, 48);
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const taglines = {
+    premium: 'Qualidade sob contrato GS.',
+    underground: 'Longe dos holofotes.',
+    show: 'Oficial da turnê.',
+    courier: 'Rota rápida, sem perguntas.'
+  };
+  let tagline = taglines.premium;
+  if (/subsolo|ilegal|shadow|negro/i.test(idea + tone)) tagline = taglines.underground;
+  else if (/show|tourê|nina|merch|rider/i.test(idea + tone)) tagline = taglines.show;
+  else if (/courier|entrega|porto/i.test(idea + tone)) tagline = taglines.courier;
+  else if (tone) tagline = `Vitrine ${tone}.`;
+
+  document.getElementById('vendor-name').value = title || 'Nova Vitrine';
+  document.getElementById('vendor-slug').value = slug || 'vitrine';
+  document.getElementById('vendor-tagline').value = tagline;
+  document.getElementById('vendor-tone').value = tone;
+  document.getElementById('vendor-desc').value = `${title} opera sob o guarda-chuva Global Smith. ${tagline}`;
+  showToast('Vitrine gerada localmente — revise e salve.');
+}
+
+async function generateVendorWithAI() {
+  const idea = (document.getElementById('vendor-ai-idea')?.value || '').trim();
+  const tone = (document.getElementById('vendor-ai-tone')?.value || '').trim() || 'premium corporativo';
+  if (!idea) {
+    showToast('Descreva a vitrine.', 'error');
+    return;
+  }
+  // Reuse local if no AI module; try window helper from firebase-ai
+  if (typeof window.generateVendorWithFirebaseAI === 'function') {
+    return window.generateVendorWithFirebaseAI(idea, tone);
+  }
+  generateVendorLocal();
+  showToast('IA de vitrine indisponível — usei gerador local.');
 }
