@@ -2441,3 +2441,188 @@ body.theme-blackmarket .brand {
   margin: 0 0 8px;
   font-size: 13px;
 }
+
+/* ========== BANCO GS ========== */
+.bank-layout {
+  display: grid;
+  grid-template-columns: 1fr minmax(260px, 320px);
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .bank-layout { grid-template-columns: 1fr; }
+}
+.gs-card {
+  position: relative;
+  border-radius: 16px;
+  padding: 22px 24px;
+  background: linear-gradient(135deg, #1a1f2e 0%, #0f1219 50%, color-mix(in srgb, var(--rank-color, #7dd3fc) 25%, #161a21) 100%);
+  border: 1px solid color-mix(in srgb, var(--rank-color, #7dd3fc) 35%, transparent);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  margin-bottom: 20px;
+  overflow: hidden;
+  min-height: 180px;
+}
+.gs-card::after {
+  content: '';
+  position: absolute;
+  inset: -40% -20% auto auto;
+  width: 60%;
+  height: 120%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--rank-color, #7dd3fc) 18%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.gs-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+  position: relative;
+  z-index: 1;
+}
+.gs-card-brand {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: rgba(255,255,255,0.75);
+}
+.gs-card-chip {
+  width: 36px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #d4a017, #f5d76e 40%, #b8860b);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+}
+.gs-card-number {
+  font-family: ui-monospace, monospace;
+  font-size: 20px;
+  letter-spacing: 0.12em;
+  margin-bottom: 22px;
+  position: relative;
+  z-index: 1;
+}
+.gs-card-bottom {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+}
+.gs-card-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 2px;
+}
+.gs-card-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+.bank-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+@media (max-width: 600px) {
+  .bank-stats { grid-template-columns: 1fr; }
+}
+.bank-stat {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.bank-stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.bank-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+.bank-section h3,
+.bank-panel h3 {
+  font-size: 15px;
+  margin: 0 0 12px;
+}
+.ledger-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.ledger-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.ledger-row:last-child { border-bottom: none; }
+.ledger-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+.ledger-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.ledger-amount {
+  font-weight: 700;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.bank-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.bank-panel-muted {
+  background: transparent;
+  border-style: dashed;
+}
+.bank-hint {
+  font-size: 12px;
+  margin: 0 0 12px;
+}
+.bank-footnote {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.45;
+}
+.loan-active-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.loan-active-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--warning);
+}
+.loan-pending {
+  padding: 8px 0;
+}
+.loan-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.loan-hist-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+.text-danger { color: #f87171; }

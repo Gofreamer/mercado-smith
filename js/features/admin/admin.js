@@ -302,6 +302,7 @@ async function adminAdjustBalance(e) {
 
   const input = document.getElementById('admin-user-id').value.trim();
   const newBalance = parseFloat(document.getElementById('admin-new-balance').value);
+  const note = (document.getElementById('admin-balance-note')?.value || '').trim();
 
   if (isNaN(newBalance)) {
     showToast('Saldo inválido.', 'error');
@@ -321,8 +322,21 @@ async function adminAdjustBalance(e) {
       uid = Object.keys(users)[0];
     }
 
+    const prevSnap = await db.ref(`users/${uid}/balance`).once('value');
+    const prev = Number(prevSnap.val()) || 0;
+    const delta = newBalance - prev;
+
     await db.ref(`users/${uid}/balance`).set(newBalance);
-    showToast('Saldo atualizado!');
+    if (typeof pushLedgerEntry === 'function') {
+      await pushLedgerEntry(uid, {
+        type: delta >= 0 ? 'deposit' : 'withdraw',
+        amount: delta,
+        balanceAfter: newBalance,
+        label: note || (delta >= 0 ? 'Crédito do núcleo GS' : 'Débito do núcleo GS')
+      });
+    }
+    pushAdminLog({ type: 'balance', userId: uid, amount: delta, to: newBalance });
+    showToast('Saldo atualizado e lançado no extrato.');
     e.target.reset();
   } catch (err) {
     console.error(err);
@@ -345,6 +359,7 @@ function switchAdminTab(tab, btn) {
   if (tab === 'coupons') renderAdminCoupons();
   if (tab === 'offers') renderAdminOffers();
   if (tab === 'events') renderAdminEvents();
+  if (tab === 'loans') renderAdminLoans();
   if (tab === 'log') renderAdminLog();
   if (tab === 'players') renderAdminPlayers();
   if (tab === 'access') { /* form only */ }
@@ -966,11 +981,22 @@ async function adminSetOrderStatus(orderId, newStatus) {
     updates[`orders/${orderId}/deliveredAt`] = now;
   }
   if (newStatus === 'refunded') {
-    // devolve saldo
+    // devolve saldo + extrato
     try {
       const userSnap = await db.ref('users/' + order.userId + '/balance').once('value');
       const bal = Number(userSnap.val()) || 0;
-      updates[`users/${order.userId}/balance`] = bal + (Number(order.price) || 0);
+      const refundAmt = Number(order.price) || 0;
+      const newBal = bal + refundAmt;
+      updates[`users/${order.userId}/balance`] = newBal;
+      const lk = generateId();
+      updates[`users/${order.userId}/ledger/${lk}`] = {
+        type: 'refund',
+        amount: refundAmt,
+        balanceAfter: newBal,
+        label: `Reembolso: ${order.productName || 'pedido'}`,
+        refId: orderId,
+        createdAt: now
+      };
     } catch (e) { console.warn(e); }
   }
 

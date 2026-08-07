@@ -10,6 +10,7 @@ function listenUserProfile(uid) {
     if (state.currentView === 'inventory') renderInventory();
     if (state.currentView === 'profile') renderProfile();
     if (state.currentView === 'wishlist') renderWishlist();
+    if (state.currentView === 'bank' && typeof renderBank === 'function') renderBank();
     if (state.currentView === 'blackmarket') renderBlackMarket();
   });
 }
@@ -372,6 +373,20 @@ async function executePurchase(lines) {
     updates[`coupons/${couponCode}/uses`] = uses;
   }
 
+  // extrato bancário
+  const ledgerKey = generateId();
+  const itemNames = lines.map(l => state.products[l.productId]?.name).filter(Boolean);
+  const ledgerLabel = itemNames.length === 1
+    ? `Compra: ${itemNames[0]}`
+    : `Compra: ${itemNames.length} itens`;
+  updates[`users/${uid}/ledger/${ledgerKey}`] = {
+    type: 'purchase',
+    amount: -payTotal,
+    balanceAfter: runningBalance,
+    label: ledgerLabel + (discount > 0 ? ' (cupom)' : ''),
+    createdAt: Date.now()
+  };
+
   try {
     await db.ref().update(updates);
 
@@ -434,6 +449,7 @@ function updateAdminVisibility() {
     listenOffers();
     listenAdminLog();
     listenEvents();
+    if (typeof listenLoanRequests === 'function') listenLoanRequests();
   }
   if (isAdmin && (!state.allUsers || Object.keys(state.allUsers).length === 0)) {
     listenAllUsers();

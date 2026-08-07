@@ -33,12 +33,14 @@ function showView(viewName) {
   if (viewName === 'orders') renderOrders();
   if (viewName === 'profile') renderProfile();
   if (viewName === 'wishlist') renderWishlist();
+  if (viewName === 'bank') renderBank();
   if (viewName === 'admin') {
     renderAdminProducts();
     renderAdminOrders();
     if (typeof renderAdminCoupons === 'function') renderAdminCoupons();
     if (typeof renderAdminOffers === 'function') renderAdminOffers();
     if (typeof renderAdminEvents === 'function') renderAdminEvents();
+    if (typeof renderAdminLoans === 'function') renderAdminLoans();
     if (typeof renderAdminLog === 'function') renderAdminLog();
   }
 }

@@ -19,6 +19,7 @@ const state = {
   adminLog: [],
   appliedCoupon: null,
   events: {},
+  loanRequests: [],
   /** snapshot de estoque anterior para notificar restock da wishlist */
   _prevStock: null,
   /** ids de produto já notificados nesta sessão (evita spam) */

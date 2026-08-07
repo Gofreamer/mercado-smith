@@ -406,7 +406,8 @@ async function adminRespondOffer(offerId, action) {
 
       const delivery = computeDelivery(p);
       const updates = {};
-      updates[`users/${offer.userId}/balance`] = bal - finalAmount;
+      const newBal = bal - finalAmount;
+      updates[`users/${offer.userId}/balance`] = newBal;
       const invKey = generateId();
       updates[`users/${offer.userId}/inventory/${invKey}`] = {
         productId: offer.productId,
@@ -420,6 +421,15 @@ async function adminRespondOffer(offerId, action) {
         deliveredAt: delivery.deliveredAt,
         statusMessage: STATUS_MESSAGES[delivery.status] || '',
         viaOffer: true
+      };
+      const ledgerKey = generateId();
+      updates[`users/${offer.userId}/ledger/${ledgerKey}`] = {
+        type: 'offer',
+        amount: -finalAmount,
+        balanceAfter: newBal,
+        label: `Negociação: ${p.name}`,
+        refId: offerId,
+        createdAt: Date.now()
       };
       if (p.stock != null) updates[`products/${offer.productId}/stock`] = Math.max(0, (p.stock || 0) - 1);
 
