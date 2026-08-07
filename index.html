@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Global Smith</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="./css/styles.css" rel="stylesheet"/>
+
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+</head>
+<body>
+
+  <!-- ==================== TELA DE LOGIN ==================== -->
+  <div id="auth-screen" class="auth-screen">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="logo-mark">GS</div>
+        <div class="logo-text">
+          <h1>Global Smith</h1>
+          <p>Marketplace Premium</p>
+        </div>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Entrar</button>
+        <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Criar Conta</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="login-form" class="auth-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="login-email" placeholder="seu@email.com" required autocomplete="email"/>
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password"/>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full" id="btn-login">Entrar</button>
+        <p class="auth-error" id="login-error"></p>
+      </form>
+
+      <!-- Register Form -->
+      <form id="register-form" class="auth-form hidden" onsubmit="handleRegister(event)">
+        <div class="form-group">
+          <label>Nome do Personagem</label>
+          <input type="text" id="register-name" placeholder="Nome do personagem" required maxlength="40"/>
+        </div>
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="register-email" placeholder="seu@email.com" required autocomplete="email"/>
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="register-password" placeholder="Mínimo 6 caracteres" required minlength="6" autocomplete="new-password"/>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full" id="btn-register">Criar Conta</button>
+        <p class="auth-error" id="register-error"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== APP PRINCIPAL ==================== -->
+  <div id="app" class="app hidden">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo-mark small">GS</div>
+        <span class="brand">Global Smith</span>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-view="market" onclick="showView('market')">Mercado</button>
+        <button class="nav-item" data-view="inventory" onclick="showView('inventory')">Inventário</button>
+        <button class="nav-item" data-view="orders" onclick="showView('orders')">Pedidos</button>
+        <button class="nav-item" data-view="profile" onclick="showView('profile')">Perfil</button>
+        <button class="nav-item admin-only hidden" data-view="admin" onclick="showView('admin')">Admin</button>
+      </nav>
+
+      <div class="header-right">
+        <div class="balance-pill" id="balance-display">
+          <span class="balance-label">Saldo</span>
+          <span class="balance-value" id="user-balance">$ 0.00</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="handleLogout()">Sair</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- VIEW: Mercado -->
+      <section id="view-market" class="view">
+        <div class="view-header">
+          <h2>Mercado</h2>
+          <div class="view-actions">
+            <input type="search" id="search-input" class="search-input" placeholder="Buscar produtos..." oninput="filterProducts()"/>
+            <select id="category-filter" class="select" onchange="filterProducts()">
+              <option value="">Todas as categorias</option>
+            </select>
+          </div>
+        </div>
+        <div id="products-grid" class="products-grid">
+          <div class="empty-state">Carregando produtos...</div>
+        </div>
+      </section>
+
+      <!-- VIEW: Inventário -->
+      <section id="view-inventory" class="view hidden">
+        <div class="view-header">
+          <h2>Inventário</h2>
+        </div>
+        <div id="inventory-list" class="inventory-list">
+          <div class="empty-state">Seu inventário está vazio.</div>
+        </div>
+      </section>
+
+      <!-- VIEW: Pedidos -->
+      <section id="view-orders" class="view hidden">
+        <div class="view-header">
+          <h2>Histórico de Pedidos</h2>
+        </div>
+        <div id="orders-list" class="orders-list">
+          <div class="empty-state">Nenhum pedido ainda.</div>
+        </div>
+      </section>
+
+      <!-- VIEW: Perfil -->
+      <section id="view-profile" class="view hidden">
+        <div class="view-header">
+          <h2>Perfil</h2>
+        </div>
+        <div class="profile-card" id="profile-card">
+          <!-- preenchido via JS -->
+        </div>
+      </section>
+
+      <!-- VIEW: Admin -->
+      <section id="view-admin" class="view hidden">
+        <div class="view-header">
+          <h2>Painel Administrativo</h2>
+        </div>
+        <div class="admin-grid">
+          <div class="admin-card">
+            <h3>Adicionar Produto</h3>
+            <form id="admin-add-product" onsubmit="adminAddProduct(event)">
+              <div class="form-group">
+                <label>Nome</label>
+                <input type="text" id="admin-product-name" required/>
+              </div>
+              <div class="form-group">
+                <label>Descrição</label>
+                <textarea id="admin-product-desc" rows="3" required></textarea>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Preço ($)</label>
+                  <input type="number" id="admin-product-price" min="0" step="0.01" required/>
+                </div>
+                <div class="form-group">
+                  <label>Categoria</label>
+                  <select id="admin-product-category" required>
+                    <option value="equipamentos">Equipamentos</option>
+                    <option value="consumiveis">Consumíveis</option>
+                    <option value="servicos">Serviços</option>
+                    <option value="comida">Comida & Bebida</option>
+                    <option value="ilegais">Ilegais / Mercado Negro</option>
+                    <option value="exoticos">Exóticos / Raros</option>
+                    <option value="utilidades">Utilidades</option>
+                    <option value="informacoes">Informações & Favores</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>URL da Imagem (opcional)</label>
+                <input type="url" id="admin-product-image" placeholder="https://..."/>
+              </div>
+              <div class="form-group">
+                <label>Estoque (deixe vazio = ilimitado)</label>
+                <input type="number" id="admin-product-stock" min="0"/>
+              </div>
+              <button type="submit" class="btn btn-primary">Adicionar Produto</button>
+            </form>
+          </div>
+
+          <div class="admin-card">
+            <h3>Ajustar Saldo</h3>
+            <form id="admin-adjust-balance" onsubmit="adminAdjustBalance(event)">
+              <div class="form-group">
+                <label>UID ou E-mail do usuário</label>
+                <input type="text" id="admin-user-id" required placeholder="UID ou email"/>
+              </div>
+              <div class="form-group">
+                <label>Novo Saldo ($)</label>
+                <input type="number" id="admin-new-balance" step="0.01" required/>
+              </div>
+              <button type="submit" class="btn btn-primary">Atualizar Saldo</button>
+            </form>
+          </div>
+
+          <div class="admin-card">
+            <h3>Gerar Produto com IA</h3>
+            <p class="text-muted">Em breve — integração com Gemini.</p>
+            <button class="btn btn-secondary" disabled>Gerar Item (em breve)</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Scripts -->
+  <script src="./js/config/firebase-config.js"></script>
+  <script src="./js/data/state.js"></script>
+  <script src="./js/core/utils.js"></script>
+  <script src="./js/services/auth.js"></script>
+  <script src="./js/services/database.js"></script>
+  <script src="./js/app/navigation.js"></script>
+  <script src="./js/app/auth-ui.js"></script>
+  <script src="./js/features/market/market.js"></script>
+  <script src="./js/features/inventory/inventory.js"></script>
+  <script src="./js/features/profile/profile.js"></script>
+  <script src="./js/features/admin/admin.js"></script>
+  <script src="./js/app/start.js"></script>
+</body>
+</html>
