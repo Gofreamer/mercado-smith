@@ -3,6 +3,8 @@
 auth.onAuthStateChanged(async (user) => {
   if (user) {
     state.user = user;
+    loadCartFromStorage(user.uid);
+    updateCartBadge();
     showApp();
     listenUserProfile(user.uid);
     listenProducts();
@@ -13,6 +15,9 @@ auth.onAuthStateChanged(async (user) => {
   } else {
     state.user = null;
     state.profile = null;
+    state.cart = {};
+    updateCartBadge();
+    closeCart();
     showAuthScreen();
   }
 });

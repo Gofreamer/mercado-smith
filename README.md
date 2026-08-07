@@ -7,10 +7,20 @@ Marketplace premium corporativo para RPG.
 - Firebase Authentication (Email/Password)
 - Firebase Realtime Database
 
+## Funcionalidades
+- Login / Registro
+- Mercado com busca, chips de categorias e badges de estoque
+- **Carrinho de compras** (drawer lateral, quantidade, persistência local)
+- Compra rápida (1 item) ou checkout do carrinho
+- Inventário do personagem
+- Histórico de pedidos
+- Perfil + saldo
+- Painel Admin (produtos + ajuste de saldo)
+
 ## Estrutura
 
 ```
-global-smith/
+mercado-smith/
 ├── index.html
 ├── css/styles.css
 ├── js/
@@ -26,6 +36,7 @@ global-smith/
 │   │   └── start.js
 │   └── features/
 │       ├── market/market.js
+│       ├── cart/cart.js
 │       ├── inventory/inventory.js
 │       ├── profile/profile.js
 │       └── admin/admin.js

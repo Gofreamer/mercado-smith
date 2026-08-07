@@ -5,8 +5,8 @@ function listenUserProfile(uid) {
     state.profile = snap.val() || null;
     updateBalanceUI();
     updateAdminVisibility();
-    if (state.currentView === 'profile') renderProfile();
     if (state.currentView === 'inventory') renderInventory();
+    if (state.currentView === 'profile') renderProfile();
   });
 }
 
@@ -14,6 +14,7 @@ function listenProducts() {
   db.ref('products').on('value', (snap) => {
     state.products = snap.val() || {};
     if (state.currentView === 'market') renderProducts();
+    if (state.cartOpen) renderCart();
   });
 }
 
@@ -27,6 +28,7 @@ function listenOrders(uid) {
   });
 }
 
+/** Compra rápida (1 unidade) */
 async function buyProduct(productId) {
   const product = state.products[productId];
   if (!product) {
@@ -47,7 +49,6 @@ async function buyProduct(productId) {
     return;
   }
 
-  // Estoque
   if (product.stock !== null && product.stock !== undefined && product.stock <= 0) {
     showToast('Produto esgotado.', 'error');
     return;
@@ -57,10 +58,8 @@ async function buyProduct(productId) {
   const orderId = generateId();
   const updates = {};
 
-  // Debita saldo
   updates[`users/${uid}/balance`] = balance - price;
 
-  // Adiciona ao inventário
   const invKey = generateId();
   updates[`users/${uid}/inventory/${invKey}`] = {
     productId,
@@ -71,18 +70,20 @@ async function buyProduct(productId) {
     boughtAt: Date.now()
   };
 
-  // Decrementa estoque se houver
   if (product.stock !== null && product.stock !== undefined) {
     updates[`products/${productId}/stock`] = product.stock - 1;
   }
 
-  // Cria pedido
   updates[`orders/${orderId}`] = {
     userId: uid,
     userName: state.profile.name,
     productId,
     productName: product.name,
     price,
+    unitPrice: price,
+    quantity: 1,
+    image: product.image || '',
+    category: product.category || '',
     createdAt: Date.now()
   };
 
