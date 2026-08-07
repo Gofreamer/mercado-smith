@@ -660,3 +660,58 @@ button, input, select, textarea {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==================== HERO BANNER ==================== */
+
+.hero-banner {
+  position: relative;
+  height: 320px;
+  background-image: url('https://i.imgur.com/JaAa1GK.jpeg');
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(11, 13, 16, 0.75) 0%, rgba(11, 13, 16, 0.45) 50%, rgba(11, 13, 16, 0.6) 100%);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  max-width: 640px;
+  padding: 0 24px;
+}
+
+.hero-content h1 {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  margin-bottom: 12px;
+  color: #fff;
+}
+
+.hero-content p {
+  font-size: 17px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 28px;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .hero-banner {
+    height: 240px;
+  }
+  .hero-content h1 {
+    font-size: 28px;
+  }
+  .hero-content p {
+    font-size: 15px;
+  }
+}
