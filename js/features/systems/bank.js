@@ -1,8 +1,18 @@
-/* Global Smith — Banco + Cartão RP + Extrato + Empréstimo */
+/* Global Smith — Banco + Cartão RP + Extrato + Gasto RP + Empréstimo + Admin cartão */
+
+const RP_SPEND_CATEGORIES = {
+  transporte: 'Transporte',
+  entrada: 'Entrada / acesso',
+  comida: 'Comida & bebida',
+  servico: 'Serviço',
+  favor: 'Favor / propina',
+  hospedagem: 'Hospedagem',
+  diversao: 'Diversão',
+  outros: 'Outros'
+};
 
 function getCardNumber(uid) {
   if (!uid) return '•••• •••• •••• ••••';
-  // determinístico a partir do uid
   let h = 0;
   for (let i = 0; i < uid.length; i++) h = ((h << 5) - h + uid.charCodeAt(i)) | 0;
   const n = Math.abs(h).toString().padStart(16, '7').slice(0, 16);
@@ -18,7 +28,32 @@ function getCardExpiry(profile) {
   return `${mm}/${yy}`;
 }
 
-/** Registra linha no extrato do usuário */
+function getCardStatus(profile) {
+  const s = profile?.card?.status || 'active';
+  if (s === 'cancelled' || s === 'suspended' || s === 'active') return s;
+  return 'active';
+}
+
+function getCardHolder(profile) {
+  return (profile?.card?.holderName || profile?.name || '—').trim();
+}
+
+function getCardBenefit(profile) {
+  return (profile?.card?.benefit || '').trim();
+}
+
+function cardStatusLabel(status) {
+  return ({ active: 'Ativo', suspended: 'Suspenso', cancelled: 'Cancelado' })[status] || status;
+}
+
+function cardStatusClass(status) {
+  return ({
+    active: 'status-delivered',
+    suspended: 'status-held',
+    cancelled: 'status-lost'
+  })[status] || 'status-transit';
+}
+
 async function pushLedgerEntry(uid, entry) {
   if (!uid) return;
   try {
@@ -28,6 +63,7 @@ async function pushLedgerEntry(uid, entry) {
       amount: Number(entry.amount) || 0,
       balanceAfter: entry.balanceAfter != null ? Number(entry.balanceAfter) : null,
       label: entry.label || '',
+      category: entry.category || null,
       refId: entry.refId || null,
       createdAt: entry.createdAt || Date.now()
     });
@@ -61,7 +97,9 @@ function ledgerTypeLabel(type) {
     loan_payment: 'Pagamento de empréstimo',
     offer: 'Negociação fechada',
     transfer_in: 'Transferência recebida',
-    transfer_out: 'Transferência enviada'
+    transfer_out: 'Transferência enviada',
+    rp_spend: 'Gasto no cartão',
+    benefit: 'Benefício do cartão'
   };
   return map[type] || type || 'Movimento';
 }
@@ -84,35 +122,48 @@ function renderBank() {
   const balance = Number(state.profile.balance) || 0;
   const cardNo = getCardNumber(state.user.uid);
   const expiry = getCardExpiry(state.profile);
+  const cardStatus = getCardStatus(state.profile);
+  const holder = getCardHolder(state.profile);
+  const benefit = getCardBenefit(state.profile);
   const ledger = getLedgerEntries().slice(0, 40);
   const loans = getLoans();
   const activeLoan = loans.find(l => l.status === 'active');
   const pendingLoan = loans.find(l => l.status === 'pending');
   const debt = activeLoan ? Number(activeLoan.remaining || activeLoan.amount) || 0 : 0;
+  const cardOk = cardStatus === 'active';
+  const catOptions = Object.entries(RP_SPEND_CATEGORIES)
+    .map(([k, v]) => `<option value="${k}">${v}</option>`)
+    .join('');
 
   root.innerHTML = `
     <div class="bank-layout">
       <div class="bank-main">
-        <div class="gs-card" style="--rank-color:${rank.color}">
+        <div class="gs-card ${cardStatus !== 'active' ? 'gs-card-' + cardStatus : ''}" style="--rank-color:${rank.color}">
           <div class="gs-card-top">
             <span class="gs-card-brand">GLOBAL SMITH</span>
             <span class="gs-card-chip"></span>
           </div>
-          <div class="gs-card-number">${cardNo}</div>
+          ${cardStatus !== 'active' ? `<div class="gs-card-stamp">${cardStatusLabel(cardStatus).toUpperCase()}</div>` : ''}
+          <div class="gs-card-number">${cardStatus === 'cancelled' ? '•••• •••• •••• ••••' : cardNo}</div>
           <div class="gs-card-bottom">
             <div>
               <div class="gs-card-label">Titular</div>
-              <div class="gs-card-name">${escapeHTML(state.profile.name || '—')}</div>
+              <div class="gs-card-name">${escapeHTML(holder)}</div>
             </div>
             <div>
               <div class="gs-card-label">Validade</div>
-              <div class="gs-card-name">${expiry}</div>
+              <div class="gs-card-name">${cardStatus === 'cancelled' ? '—' : expiry}</div>
             </div>
             <div>
               <div class="gs-card-label">Rank</div>
               <div class="gs-card-name" style="color:${rank.color}">${rank.label}</div>
             </div>
           </div>
+        </div>
+
+        <div class="bank-card-meta">
+          <span class="status-pill ${cardStatusClass(cardStatus)}">${cardStatusLabel(cardStatus)}</span>
+          ${benefit ? `<span class="bank-benefit">✦ ${escapeHTML(benefit)}</span>` : ''}
         </div>
 
         <div class="bank-stats">
@@ -134,18 +185,19 @@ function renderBank() {
           <h3>Extrato</h3>
           ${ledger.length === 0 ? `
             <div class="empty-state" style="padding:20px 0">
-              <p>Nenhum movimento ainda. Compras, reembolsos e créditos do núcleo aparecem aqui.</p>
+              <p>Nenhum movimento ainda. Compras, gastos no cartão, reembolsos e créditos do núcleo aparecem aqui.</p>
             </div>
           ` : `
             <div class="ledger-list">
               ${ledger.map(e => {
                 const amt = Number(e.amount) || 0;
                 const pos = amt >= 0;
+                const cat = e.category ? (RP_SPEND_CATEGORIES[e.category] || e.category) : '';
                 return `
                   <div class="ledger-row">
                     <div class="ledger-info">
                       <div class="ledger-label">${escapeHTML(e.label || ledgerTypeLabel(e.type))}</div>
-                      <div class="ledger-meta">${formatDateTime(e.createdAt)} · ${escapeHTML(ledgerTypeLabel(e.type))}</div>
+                      <div class="ledger-meta">${formatDateTime(e.createdAt)} · ${escapeHTML(ledgerTypeLabel(e.type))}${cat ? ' · ' + escapeHTML(cat) : ''}</div>
                     </div>
                     <div class="ledger-amount ${pos ? 'success' : 'text-danger'}">${pos ? '+' : ''}${formatMoney(amt)}</div>
                   </div>
@@ -157,6 +209,33 @@ function renderBank() {
       </div>
 
       <div class="bank-side">
+        <div class="bank-panel">
+          <h3>Gasto no cartão</h3>
+          <p class="text-muted bank-hint">Despesas do personagem fora do mercado: transporte, entrada, propina, hotel…</p>
+          ${!cardOk ? `
+            <div class="loan-pending">
+              <p>Cartão <strong>${cardStatusLabel(cardStatus)}</strong>. Gastos no cartão estão bloqueados.</p>
+              <p class="text-muted" style="font-size:12px">Fale com o núcleo GS (admin) para reativar.</p>
+            </div>
+          ` : `
+            <form onsubmit="cardRpSpend(event)">
+              <div class="form-group">
+                <label>Categoria</label>
+                <select id="rp-spend-cat" class="select" required>${catOptions}</select>
+              </div>
+              <div class="form-group">
+                <label>Valor ($)</label>
+                <input type="number" id="rp-spend-amount" required min="0.01" step="0.01" placeholder="Ex: 150"/>
+              </div>
+              <div class="form-group">
+                <label>Descrição</label>
+                <input type="text" id="rp-spend-desc" maxlength="120" required placeholder="Ex: táxi até o porto / entrada do clube"/>
+              </div>
+              <button type="submit" class="btn btn-primary btn-full">Debitar no cartão</button>
+            </form>
+          `}
+        </div>
+
         <div class="bank-panel">
           <h3>Empréstimo / crédito</h3>
           <p class="text-muted bank-hint">O núcleo GS avalia pedidos. Rank mais alto facilita liberação pela mesa.</p>
@@ -207,16 +286,82 @@ function renderBank() {
         </div>
 
         <div class="bank-panel bank-panel-muted">
-          <p class="bank-footnote">Cartão RP · sem validade real · saldo é a moeda da mesa Global Smith. Empréstimos são aprovados pelo admin (mestre).</p>
+          <p class="bank-footnote">Cartão RP · gastos fora do mercado debitam o mesmo saldo. Status e benefícios são controlados pelo núcleo GS (admin).</p>
         </div>
       </div>
     </div>
   `;
 }
 
+async function cardRpSpend(e) {
+  e.preventDefault();
+  if (!state.user || !state.profile) return;
+
+  const status = getCardStatus(state.profile);
+  if (status !== 'active') {
+    showToast('Cartão ' + cardStatusLabel(status).toLowerCase() + '. Operação bloqueada.', 'error');
+    return;
+  }
+
+  const category = document.getElementById('rp-spend-cat')?.value || 'outros';
+  const amount = parseFloat(document.getElementById('rp-spend-amount')?.value);
+  const desc = (document.getElementById('rp-spend-desc')?.value || '').trim().slice(0, 120);
+
+  if (isNaN(amount) || amount <= 0) {
+    showToast('Informe um valor válido.', 'error');
+    return;
+  }
+  if (!desc) {
+    showToast('Descreva o gasto.', 'error');
+    return;
+  }
+
+  const bal = Number(state.profile.balance) || 0;
+  if (amount > bal) {
+    showToast(`Saldo insuficiente. Disponível: ${formatMoney(bal)}.`, 'error');
+    return;
+  }
+
+  const catLabel = RP_SPEND_CATEGORIES[category] || category;
+  if (!confirm(`Debitar ${formatMoney(amount)} no cartão?\n\n${catLabel}\n${desc}`)) return;
+
+  const newBal = bal - amount;
+  const uid = state.user.uid;
+  const ledgerKey = generateId();
+
+  try {
+    await db.ref().update({
+      [`users/${uid}/balance`]: newBal,
+      [`users/${uid}/ledger/${ledgerKey}`]: {
+        type: 'rp_spend',
+        amount: -amount,
+        balanceAfter: newBal,
+        label: desc,
+        category,
+        createdAt: Date.now()
+      }
+    });
+    pushAdminLog({
+      type: 'rp_spend',
+      userId: uid,
+      userName: state.profile.name,
+      amount,
+      productName: desc
+    });
+    showToast(`Cartão: −${formatMoney(amount)} · ${desc}`);
+  } catch (err) {
+    console.error(err);
+    showToast('Erro ao debitar.', 'error');
+  }
+}
+
 async function requestLoan(e) {
   e.preventDefault();
   if (!state.user || !state.profile) return;
+  if (getCardStatus(state.profile) === 'cancelled') {
+    showToast('Cartão cancelado. Crédito indisponível.', 'error');
+    return;
+  }
   if (getLoans().some(l => l.status === 'pending' || l.status === 'active')) {
     showToast('Já existe crédito pendente ou ativo.', 'error');
     return;
@@ -238,7 +383,6 @@ async function requestLoan(e) {
       userId: state.user.uid,
       createdAt: Date.now()
     });
-    // espelho para admin listar fácil
     await db.ref(`loanRequests/${id}`).set({
       userId: state.user.uid,
       userName: state.profile.name,
@@ -316,12 +460,9 @@ async function payLoan(loanId) {
   }
 }
 
-/* ---------- ADMIN: empréstimos ---------- */
-
 function renderAdminLoans() {
   const el = document.getElementById('admin-loans-list');
   if (!el) return;
-  const list = (state.loanRequests || []).filter(l => l.status === 'pending' || l.status === 'active');
   const all = state.loanRequests || [];
   if (!all.length) {
     el.innerHTML = '<div class="empty-state">Nenhum pedido de crédito.</div>';
@@ -400,4 +541,152 @@ function listenLoanRequests() {
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     if (state.currentView === 'admin' && typeof renderAdminLoans === 'function') renderAdminLoans();
   });
+}
+
+async function adminResolveUserRef(input) {
+  const raw = (input || '').trim();
+  if (!raw) return null;
+  if (!raw.includes('@')) return raw;
+  const snap = await db.ref('users').orderByChild('email').equalTo(raw).once('value');
+  const users = snap.val();
+  if (!users) return null;
+  return Object.keys(users)[0];
+}
+
+async function adminLoadCardInfo() {
+  const input = document.getElementById('admin-card-user')?.value;
+  const box = document.getElementById('admin-card-preview');
+  if (!box) return;
+  try {
+    const uid = await adminResolveUserRef(input);
+    if (!uid) {
+      box.innerHTML = '<p class="text-muted">Usuário não encontrado.</p>';
+      return;
+    }
+    const snap = await db.ref('users/' + uid).once('value');
+    const u = snap.val();
+    if (!u) {
+      box.innerHTML = '<p class="text-muted">Usuário não encontrado.</p>';
+      return;
+    }
+    const status = u.card?.status || 'active';
+    const holder = u.card?.holderName || u.name || '—';
+    const benefit = u.card?.benefit || '';
+    document.getElementById('admin-card-uid').value = uid;
+    document.getElementById('admin-card-holder').value = holder;
+    document.getElementById('admin-card-benefit').value = benefit;
+    document.getElementById('admin-card-status').value = status;
+    box.innerHTML = `
+      <div class="admin-card-preview-inner">
+        <div><strong>${escapeHTML(u.name || '')}</strong> · ${escapeHTML(u.email || '')}</div>
+        <div class="mono" style="font-size:12px;margin-top:4px">${getCardNumber(uid)}</div>
+        <div style="margin-top:6px">Saldo: <strong class="success">${formatMoney(u.balance)}</strong>
+          · <span class="status-pill ${cardStatusClass(status)}">${cardStatusLabel(status)}</span>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    console.error(e);
+    box.innerHTML = '<p class="text-danger">Erro ao carregar.</p>';
+  }
+}
+
+async function adminSaveCard(e) {
+  e.preventDefault();
+  const uid = document.getElementById('admin-card-uid')?.value?.trim();
+  if (!uid) {
+    showToast('Carregue um jogador primeiro.', 'error');
+    return;
+  }
+  const holderName = (document.getElementById('admin-card-holder')?.value || '').trim().slice(0, 60);
+  const benefit = (document.getElementById('admin-card-benefit')?.value || '').trim().slice(0, 160);
+  const status = document.getElementById('admin-card-status')?.value || 'active';
+
+  try {
+    await db.ref(`users/${uid}/card`).update({
+      holderName: holderName || null,
+      benefit: benefit || null,
+      status,
+      updatedAt: Date.now()
+    });
+    pushAdminLog({
+      type: 'card_update',
+      userId: uid,
+      from: status,
+      productName: holderName || benefit || status
+    });
+    showToast('Cartão atualizado.');
+    adminLoadCardInfo();
+  } catch (err) {
+    console.error(err);
+    showToast('Erro ao salvar cartão.', 'error');
+  }
+}
+
+async function adminCardCredit(e) {
+  e.preventDefault();
+  const uid = document.getElementById('admin-card-uid')?.value?.trim();
+  if (!uid) {
+    showToast('Carregue um jogador primeiro.', 'error');
+    return;
+  }
+  const amount = parseFloat(document.getElementById('admin-card-credit-amount')?.value);
+  const note = (document.getElementById('admin-card-credit-note')?.value || '').trim().slice(0, 120);
+  if (isNaN(amount) || amount === 0) {
+    showToast('Valor inválido (positivo = crédito, negativo = débito).', 'error');
+    return;
+  }
+  try {
+    const snap = await db.ref(`users/${uid}/balance`).once('value');
+    const bal = Number(snap.val()) || 0;
+    const newBal = bal + amount;
+    if (newBal < 0) {
+      showToast('Saldo ficaria negativo.', 'error');
+      return;
+    }
+    const updates = {};
+    updates[`users/${uid}/balance`] = newBal;
+    const lk = generateId();
+    updates[`users/${uid}/ledger/${lk}`] = {
+      type: amount > 0 ? 'benefit' : 'rp_spend',
+      amount,
+      balanceAfter: newBal,
+      label: note || (amount > 0 ? 'Benefício do cartão GS' : 'Débito administrativo no cartão'),
+      category: amount > 0 ? null : 'outros',
+      createdAt: Date.now()
+    };
+    await db.ref().update(updates);
+    pushAdminLog({ type: amount > 0 ? 'card_benefit' : 'card_debit', userId: uid, amount });
+    showToast(amount > 0 ? `Benefício de ${formatMoney(amount)} creditado.` : `Débito de ${formatMoney(Math.abs(amount))} aplicado.`);
+    document.getElementById('admin-card-credit-amount').value = '';
+    document.getElementById('admin-card-credit-note').value = '';
+    adminLoadCardInfo();
+  } catch (err) {
+    console.error(err);
+    showToast('Erro no lançamento.', 'error');
+  }
+}
+
+async function adminSetCardStatus(status) {
+  const uid = document.getElementById('admin-card-uid')?.value?.trim();
+  if (!uid) {
+    showToast('Carregue um jogador primeiro.', 'error');
+    return;
+  }
+  const labels = { active: 'reativar', suspended: 'suspender', cancelled: 'cancelar' };
+  if (!confirm(`Confirma ${labels[status] || status} este cartão?`)) return;
+  try {
+    await db.ref(`users/${uid}/card`).update({
+      status,
+      updatedAt: Date.now()
+    });
+    pushAdminLog({ type: 'card_status', userId: uid, to: status });
+    showToast(`Cartão: ${cardStatusLabel(status)}.`);
+    const sel = document.getElementById('admin-card-status');
+    if (sel) sel.value = status;
+    adminLoadCardInfo();
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao alterar status.', 'error');
+  }
 }

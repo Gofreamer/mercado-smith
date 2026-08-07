@@ -360,6 +360,7 @@ function switchAdminTab(tab, btn) {
   if (tab === 'offers') renderAdminOffers();
   if (tab === 'events') renderAdminEvents();
   if (tab === 'loans') renderAdminLoans();
+  if (tab === 'cards') { /* form only */ }
   if (tab === 'log') renderAdminLog();
   if (tab === 'players') renderAdminPlayers();
   if (tab === 'access') { /* form only */ }

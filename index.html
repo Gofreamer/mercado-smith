@@ -223,6 +223,7 @@
           <button class="admin-tab" onclick="switchAdminTab('orders', this)">Pedidos / Entregas</button>
           <button class="admin-tab" onclick="switchAdminTab('balance', this)">Saldo</button>
           <button class="admin-tab" onclick="switchAdminTab('loans', this)">Empréstimos</button>
+          <button class="admin-tab" onclick="switchAdminTab('cards', this)">Cartões</button>
           <button class="admin-tab" onclick="switchAdminTab('players', this)">Jogadores</button>
           <button class="admin-tab" onclick="switchAdminTab('access', this)">Acessos</button>
           <button class="admin-tab" onclick="switchAdminTab('coupons', this)">Cupons</button>
@@ -380,6 +381,65 @@
             <h3>Pedidos de crédito</h3>
             <p class="text-muted admin-hint">Aprovar credita o saldo e abre dívida no Banco do jogador.</p>
             <div id="admin-loans-list"></div>
+          </div>
+        </div>
+
+
+        <!-- Tab: Cartões -->
+        <div id="admin-tab-cards" class="admin-tab-panel hidden">
+          <div class="admin-layout">
+            <div class="admin-card">
+              <h3>Gerir cartão do jogador</h3>
+              <p class="text-muted admin-hint">Busque por UID ou e-mail. Altere titular, benefício, status; credite ou debite.</p>
+              <div class="form-group">
+                <label>UID ou E-mail</label>
+                <div style="display:flex;gap:8px">
+                  <input type="text" id="admin-card-user" placeholder="UID ou email" style="flex:1"/>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="adminLoadCardInfo()">Carregar</button>
+                </div>
+              </div>
+              <input type="hidden" id="admin-card-uid" value=""/>
+              <div id="admin-card-preview" class="admin-card-preview"></div>
+              <form onsubmit="adminSaveCard(event)">
+                <div class="form-group">
+                  <label>Nome no cartão (titular)</label>
+                  <input type="text" id="admin-card-holder" maxlength="60" placeholder="Nome RP do titular"/>
+                </div>
+                <div class="form-group">
+                  <label>Benefício / privilege</label>
+                  <input type="text" id="admin-card-benefit" maxlength="160" placeholder="Ex: 10% off transporte · acesso VIP portão B"/>
+                </div>
+                <div class="form-group">
+                  <label>Status</label>
+                  <select id="admin-card-status">
+                    <option value="active">Ativo</option>
+                    <option value="suspended">Suspenso</option>
+                    <option value="cancelled">Cancelado</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Salvar cartão</button>
+              </form>
+              <div class="admin-card-actions" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="adminSetCardStatus('active')">Reativar</button>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="adminSetCardStatus('suspended')">Suspender</button>
+                <button type="button" class="btn btn-ghost btn-sm text-danger" onclick="adminSetCardStatus('cancelled')">Cancelar cartão</button>
+              </div>
+            </div>
+            <div class="admin-card">
+              <h3>Lançamento no cartão</h3>
+              <p class="text-muted admin-hint">Positivo = benefício/crédito. Negativo = débito forçado (gasto RP pela mesa).</p>
+              <form onsubmit="adminCardCredit(event)">
+                <div class="form-group">
+                  <label>Valor ($)</label>
+                  <input type="number" id="admin-card-credit-amount" step="0.01" required placeholder="500 ou -150"/>
+                </div>
+                <div class="form-group">
+                  <label>Nota no extrato</label>
+                  <input type="text" id="admin-card-credit-note" maxlength="120" placeholder="Bônus de missão / multa de trânsito"/>
+                </div>
+                <button type="submit" class="btn btn-primary">Lançar</button>
+              </form>
+            </div>
           </div>
         </div>
 
