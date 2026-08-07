@@ -137,29 +137,41 @@ function formatDeliveryLabel(item) {
 
 /* ========== REPUTAÇÃO / RANKS ========== */
 
+/* Escada: N entregas do ticket do rank (gasto em pedidos ENTREGUES + qtd)
+ * Prata     = 5  × $50.000    = $250.000
+ * Ouro      = 15 × $250.000   = $3.750.000
+ * Platina   = 40 × $750.000   = $30.000.000
+ * Executivo = 80 × $1.000.000 = $80.000.000
+ */
 const RANK_THRESHOLDS = [
-  { id: 'cliente',   label: 'Cliente',   spent: 0,         orders: 0,  color: '#9aa3b5' },
-  { id: 'prata',     label: 'Prata',     spent: 50000,     orders: 5,  color: '#c0c7d4' },
-  { id: 'ouro',      label: 'Ouro',      spent: 250000,    orders: 15, color: '#f5c542' },
-  { id: 'platina',   label: 'Platina',   spent: 750000,    orders: 40, color: '#7dd3fc' },
-  { id: 'executivo', label: 'Executivo', spent: 1000000,   orders: 80, color: '#a78bfa' }
+  { id: 'cliente',   label: 'Cliente',   spent: 0,          orders: 0,  color: '#9aa3b5' },
+  { id: 'prata',     label: 'Prata',     spent: 250000,     orders: 5,  color: '#c0c7d4' },
+  { id: 'ouro',      label: 'Ouro',      spent: 3750000,    orders: 15, color: '#f5c542' },
+  { id: 'platina',   label: 'Platina',   spent: 30000000,   orders: 40, color: '#7dd3fc' },
+  { id: 'executivo', label: 'Executivo', spent: 80000000,   orders: 80, color: '#a78bfa' }
 ];
 
 const RANK_ORDER = RANK_THRESHOLDS.map(r => r.id);
 
 function getRepStats(profile, orders) {
-  // Prefer stored counters; fallback compute from delivered orders
+  // Fonte da verdade: pedidos entregues + contadores gravados (pega o maior, evita rank travado)
+  const list = (orders || []).filter(o => (o.status || 'delivered') === 'delivered');
+  const computedSpent = list.reduce((s, o) => s + (Number(o.price) || 0), 0);
+  const computedCount = list.length;
+
   let spent = Number(profile?.repSpent);
   let count = Number(profile?.repOrders);
-  if (isNaN(spent) || isNaN(count)) {
-    const list = (orders || []).filter(o => (o.status || '') === 'delivered');
-    spent = list.reduce((s, o) => s + (Number(o.price) || 0), 0);
-    count = list.length;
-  }
-  return { spent: spent || 0, orders: count || 0 };
+  if (isNaN(spent)) spent = 0;
+  if (isNaN(count)) count = 0;
+
+  return {
+    spent: Math.max(spent || 0, computedSpent),
+    orders: Math.max(count || 0, computedCount)
+  };
 }
 
 function getUserRank(profile, orders) {
+  // rankOverride só força se for um id válido (admin pode limpar com null)
   if (profile?.rankOverride) {
     const forced = RANK_THRESHOLDS.find(r => r.id === profile.rankOverride);
     if (forced) return forced;

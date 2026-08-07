@@ -63,7 +63,7 @@ function renderProfile() {
             <div class="rank-bar"><div class="rank-bar-fill" style="width:${ordersPct}%;background:${rank.color}"></div></div>
           </div>
         </div>
-        <p class="rank-hint">Rank sobe quando <strong>gasto</strong> e <strong>número de pedidos entregues</strong> atingem o mínimo.</p>
+        <p class="rank-hint">Rank sobe com pedidos <strong>entregues</strong>: gasto total + quantidade. Ex.: Prata = 5×$50k ($250k); Executivo = 80×$1M ($80M).</p>
       ` : `<p class="rank-hint">Você alcançou o círculo Executivo do Global Smith.</p>`}
     </div>
 
