@@ -222,8 +222,12 @@
                 </select>
               </div>
             </div>
-            <button type="button" class="btn btn-primary" id="btn-ai-generate" onclick="generateProductWithAI()">Gerar item</button>
+            <div class="ai-actions">
+              <button type="button" class="btn btn-primary" id="btn-local-generate" onclick="generateProductLocal()">Gerar local</button>
+              <button type="button" class="btn btn-ghost" id="btn-ai-generate" onclick="generateProductWithAI()">Gerar com IA (Gemini)</button>
+            </div>
             <p class="ai-status" id="ai-status"></p>
+            <p class="text-muted admin-hint" style="margin-top:8px">Local = sem limite, funciona offline. IA = Gemini (precisa de cota/chave).</p>
           </div>
 
           <div class="admin-split">

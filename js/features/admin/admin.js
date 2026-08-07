@@ -534,3 +534,228 @@ Gere um único produto coerente com o universo Global Smith.`;
     }
   }
 }
+
+/* ---------- GERADOR LOCAL (sem API) ---------- */
+
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function titleCaseIdea(idea) {
+  const clean = idea.replace(/^["']|["']$/g, '').trim();
+  if (!clean) return 'Item Exclusivo Global Smith';
+  // Se já parece um nome curto, usa
+  if (clean.length <= 50 && !clean.includes('.')) {
+    return clean.charAt(0).toUpperCase() + clean.slice(1);
+  }
+  // Pega trecho principal
+  const cut = clean.split(/[.,;—–-]/)[0].trim();
+  return (cut.charAt(0).toUpperCase() + cut.slice(1)).slice(0, 70);
+}
+
+function detectCategoryFromIdea(idea, hint) {
+  if (hint && AI_CATEGORIES.includes(hint)) return hint;
+  const t = idea.toLowerCase();
+  if (/bilhete|ingresso|ticket|acesso|vip|show|evento|pass/.test(t)) return 'servicos';
+  if (/arma|colete|capacete|equip|armadura|faca|pistola|rifle/.test(t)) return 'equipamentos';
+  if (/droga|ilegal|contrabando|falso|documento falso|hack/.test(t)) return 'ilegais';
+  if (/comida|bebida|whisky|vinho|champanhe|jantar|café/.test(t)) return 'comida';
+  if (/informação|segredo|dossier|favor|contato|pista/.test(t)) return 'informacoes';
+  if (/poção|injeção|stim|consum|kit médico|antidoto/.test(t)) return 'consumiveis';
+  if (/raro|relíquia|artefato|único|lendário|exótico/.test(t)) return 'exoticos';
+  if (/ferramenta|utilitário|chip|drone|gadget/.test(t)) return 'utilidades';
+  return 'exoticos';
+}
+
+function priceFor(category, tone, idea) {
+  const t = idea.toLowerCase();
+  let base = {
+    equipamentos: 2500,
+    consumiveis: 400,
+    servicos: 5000,
+    comida: 300,
+    ilegais: 8000,
+    exoticos: 15000,
+    utilidades: 1200,
+    informacoes: 6000
+  }[category] || 2000;
+
+  if (/vip|premium|exclusiv|lendár|único|grandioso|luxo/.test(t)) base *= 2.2;
+  if (/bilhete|ingresso|show/.test(t)) base = Math.max(base, 3500);
+  if (tone === 'luxo') base *= 2.5;
+  if (tone === 'ilegal') base *= 1.6;
+  if (tone === 'sombrio') base *= 1.3;
+  if (tone === 'tecnologico') base *= 1.4;
+
+  // variação
+  const factor = 0.75 + Math.random() * 0.6;
+  let price = Math.round(base * factor);
+  // arredonda “bonito”
+  if (price >= 10000) price = Math.round(price / 500) * 500;
+  else if (price >= 1000) price = Math.round(price / 50) * 50;
+  else price = Math.round(price / 10) * 10;
+  return clamp(price, 50, 500000);
+}
+
+function deliveryFor(category, idea) {
+  const t = idea.toLowerCase();
+  if (category === 'servicos' || category === 'informacoes') return pick([0, 0, 1]);
+  if (category === 'comida' || category === 'consumiveis') return pick([0, 1, 1, 2]);
+  if (category === 'ilegais' || category === 'exoticos') return pick([3, 5, 7, 10, 14]);
+  if (/digital|código|acesso online|arquivo/.test(t)) return 0;
+  return pick([0, 1, 2, 3, 5]);
+}
+
+function stockFor(category, idea) {
+  const t = idea.toLowerCase();
+  if (/único|one of one|edição única|lendário/.test(t)) return 1;
+  if (category === 'servicos' || category === 'informacoes') return pick([null, null, 10, 25]);
+  if (category === 'exoticos') return pick([1, 2, 3, 5]);
+  if (category === 'ilegais') return pick([3, 5, 8, null]);
+  return pick([null, 10, 20, 50]);
+}
+
+function buildDescription(name, idea, category, tone) {
+  const catLabel = CATEGORY_LABELS[category] || category;
+  const openings = {
+    premium: [
+      `Disponível somente através da Global Smith.`,
+      `Catalogado para clientes com acesso privilegiado.`,
+      `Item selecionado pela curadoria Global Smith.`
+    ],
+    sombrio: [
+      `Negociado longe dos holofotes.`,
+      `Quem pergunta demais não fecha negócio.`,
+      `Sem recibo. Sem testemunhas. Só resultado.`
+    ],
+    tecnologico: [
+      `Especificação de ponta, rastreabilidade mínima.`,
+      `Hardware e acesso alinhados ao padrão da elite técnica.`,
+      `Performance acima do que o mercado comum entrega.`
+    ],
+    luxo: [
+      `Reservado àqueles que não perguntam o preço primeiro.`,
+      `Exclusividade sob medida para quem já tem de tudo.`,
+      `O tipo de aquisição que redefine status.`
+    ],
+    ilegal: [
+      `Fora dos canais oficiais. Entrada discreta.`,
+      `Mercado paralelo, risco calculado.`,
+      `Se você está lendo isto, já sabe o jogo.`
+    ]
+  };
+
+  const middles = [
+    `Baseado na demanda: “${idea.slice(0, 120)}${idea.length > 120 ? '…' : ''}”.`,
+    `Conceito central: ${idea.slice(0, 100)}${idea.length > 100 ? '…' : ''}.`,
+    `Sob encomenda alinhada ao briefing do cliente.`
+  ];
+
+  const closings = {
+    servicos: [
+      `Ativação conforme disponibilidade da agenda Global Smith.`,
+      `Inclui coordenação logística discreta até o momento do acesso.`
+    ],
+    equipamentos: [
+      `Entrega com verificação de autenticidade e suporte inicial.`,
+      `Pronto para uso operacional após a liberação.`
+    ],
+    ilegais: [
+      `Sem garantia pública. Sem rastro desnecessário.`,
+      `Cliente assume o contexto de uso.`
+    ],
+    exoticos: [
+      `Peça de circulação restrita — estoque limitado.`,
+      `Procedência reservada aos arquivos internos.`
+    ],
+    comida: [
+      `Experiência sensorial sob padrão premium.`,
+      `Serviço e apresentação no nível da casa.`
+    ],
+    consumiveis: [
+      `Uso único ou ciclo curto — efeito conforme especificação.`,
+      `Validade e lote controlados internamente.`
+    ],
+    utilidades: [
+      `Ferramenta prática para quem resolve problemas de verdade.`,
+      `Integração simples ao kit operacional do cliente.`
+    ],
+    informacoes: [
+      `Conteúdo entregue por canal seguro após confirmação.`,
+      `Atualidade sujeita à janela de inteligência disponível.`
+    ]
+  };
+
+  const toneKey = openings[tone] ? tone : 'premium';
+  const open = pick(openings[toneKey]);
+  const mid = pick(middles);
+  const close = pick(closings[category] || closings.exoticos);
+
+  return `${open} ${mid} Categoria: ${catLabel}. ${close}`;
+}
+
+function generateProductLocal() {
+  const promptEl = document.getElementById('ai-prompt');
+  const toneEl = document.getElementById('ai-tone');
+  const catHintEl = document.getElementById('ai-category-hint');
+  const btn = document.getElementById('btn-local-generate');
+
+  const idea = (promptEl?.value || '').trim();
+  const tone = toneEl?.value || 'premium';
+  const catHint = catHintEl?.value || '';
+
+  if (!idea) {
+    showToast('Descreva a ideia do item.', 'error');
+    promptEl?.focus();
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Gerando...';
+  }
+  setAiStatus('Gerando localmente...', 'loading');
+
+  // pequeno delay só pra feedback visual
+  setTimeout(() => {
+    try {
+      const category = detectCategoryFromIdea(idea, catHint);
+      let name = titleCaseIdea(idea);
+
+      // refinamentos de nome por tipo
+      if (category === 'servicos' && /bilhete|ingresso|show|evento/i.test(idea) && !/bilhete|ingresso/i.test(name)) {
+        name = 'Bilhete — ' + name;
+      }
+
+      const price = priceFor(category, tone, idea);
+      const deliveryDays = deliveryFor(category, idea);
+      const stock = stockFor(category, idea);
+      const description = buildDescription(name, idea, category, tone);
+
+      adminResetProductForm();
+      document.getElementById('admin-product-name').value = name.slice(0, 80);
+      document.getElementById('admin-product-desc').value = description;
+      document.getElementById('admin-product-price').value = price;
+      document.getElementById('admin-product-category').value = category;
+      document.getElementById('admin-product-delivery').value = deliveryDays;
+      document.getElementById('admin-product-stock').value = stock === null ? '' : stock;
+
+      document.getElementById('admin-product-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setAiStatus('Gerado localmente. Revise e clique em Adicionar Produto.', 'ok');
+      showToast('Item gerado (local)');
+    } catch (err) {
+      console.error(err);
+      setAiStatus('Erro no gerador local.', 'error');
+      showToast('Erro ao gerar localmente.', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Gerar local';
+      }
+    }
+  }, 280);
+}
