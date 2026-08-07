@@ -331,3 +331,206 @@ function switchAdminTab(tab, btn) {
   if (tab === 'products') renderAdminProducts();
   if (tab === 'orders') renderAdminOrders();
 }
+
+/* ---------- IA (Gemini) ---------- */
+
+const AI_KEY_STORAGE = 'gs_gemini_api_key';
+const AI_CATEGORIES = Object.keys(CATEGORY_LABELS);
+
+function loadAiApiKey() {
+  const input = document.getElementById('ai-api-key');
+  if (!input) return;
+  try {
+    const key = localStorage.getItem(AI_KEY_STORAGE) || '';
+    input.value = key;
+  } catch {}
+}
+
+function saveAiApiKey() {
+  const input = document.getElementById('ai-api-key');
+  if (!input) return;
+  const key = input.value.trim();
+  try {
+    if (key) localStorage.setItem(AI_KEY_STORAGE, key);
+    else localStorage.removeItem(AI_KEY_STORAGE);
+    showToast(key ? 'Chave salva neste navegador' : 'Chave removida');
+  } catch {
+    showToast('Não foi possível salvar a chave.', 'error');
+  }
+}
+
+function setAiStatus(msg, type = '') {
+  const el = document.getElementById('ai-status');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.className = 'ai-status' + (type ? ' ' + type : '');
+}
+
+function extractJson(text) {
+  if (!text) return null;
+  // tenta parse direto
+  try { return JSON.parse(text); } catch {}
+  // bloco ```json
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) {
+    try { return JSON.parse(fence[1].trim()); } catch {}
+  }
+  // primeiro { ... }
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start !== -1 && end > start) {
+    try { return JSON.parse(text.slice(start, end + 1)); } catch {}
+  }
+  return null;
+}
+
+async function generateProductWithAI() {
+  const keyInput = document.getElementById('ai-api-key');
+  const promptEl = document.getElementById('ai-prompt');
+  const toneEl = document.getElementById('ai-tone');
+  const catHintEl = document.getElementById('ai-category-hint');
+  const btn = document.getElementById('btn-ai-generate');
+
+  const apiKey = (keyInput?.value || '').trim() || (localStorage.getItem(AI_KEY_STORAGE) || '');
+  const idea = (promptEl?.value || '').trim();
+  const tone = toneEl?.value || 'premium';
+  const catHint = catHintEl?.value || '';
+
+  if (!apiKey) {
+    showToast('Cole sua chave da API Gemini.', 'error');
+    keyInput?.focus();
+    return;
+  }
+  if (!idea) {
+    showToast('Descreva a ideia do item.', 'error');
+    promptEl?.focus();
+    return;
+  }
+
+  // salva chave se ainda não estava
+  try { localStorage.setItem(AI_KEY_STORAGE, apiKey); } catch {}
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Gerando...';
+  }
+  setAiStatus('Consultando a IA...', 'loading');
+
+  const toneMap = {
+    premium: 'premium, corporativo, sofisticado, Global Smith',
+    sombrio: 'sombrio, underground, noir, ameaçador',
+    tecnologico: 'tecnológico, cyber, high-tech, futurista',
+    luxo: 'luxo extremo, exclusivo, ostentação, elite',
+    ilegal: 'mercado negro, ilegal, discreto, arriscado'
+  };
+
+  const systemInstruction = `Você cria produtos para o marketplace in-world "Global Smith", um mercado premium de RPG (tom corporativo americano, poder, exclusividade).
+Responda APENAS com um JSON válido, sem markdown, no formato:
+{
+  "name": "string (nome curto e marcante, máx 60 caracteres)",
+  "description": "string (2 a 4 frases em português do Brasil, vendendo o item no universo do jogo)",
+  "price": number (preço sugerido em dólares do jogo, realista para o tipo de item; entre 50 e 500000),
+  "category": "uma destas chaves: ${AI_CATEGORIES.join(', ')}",
+  "deliveryDays": number (0 = imediato; serviços costumam 0-2; físicos/raros 1-14; ilegais/exóticos 3-21),
+  "stock": number ou null (null = ilimitado; itens únicos use 1; consumíveis 5-50)
+}
+Regras: português BR; sem emojis no nome; não invente URLs; category deve ser exatamente uma das chaves listadas.`;
+
+  const userPrompt = `Ideia do jogador/mestre: ${idea}
+Tom desejado: ${toneMap[tone] || tone}
+${catHint ? `Categoria preferida: ${catHint} (${CATEGORY_LABELS[catHint] || catHint})` : 'Escolha a categoria mais adequada.'}
+Gere um único produto coerente com o universo Global Smith.`;
+
+  const payload = {
+    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+    systemInstruction: { parts: [{ text: systemInstruction }] },
+    generationConfig: {
+      temperature: 0.9,
+      maxOutputTokens: 1024,
+      responseMimeType: 'application/json'
+    }
+  };
+
+  const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+
+  try {
+    let data = null;
+    let lastErr = null;
+
+    for (const model of models) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        data = await res.json();
+        break;
+      }
+
+      const errText = await res.text();
+      console.error('Gemini error', model, res.status, errText);
+      lastErr = res.status;
+
+      if (res.status === 400 || res.status === 403) {
+        throw new Error('Chave inválida ou API sem permissão. Confira no AI Studio.');
+      }
+      if (res.status === 429) {
+        throw new Error('Limite da API atingido. Aguarde um pouco e tente de novo.');
+      }
+      // 404 model → tenta próximo
+    }
+
+    if (!data) {
+      throw new Error('Falha na API Gemini' + (lastErr ? ' (' + lastErr + ')' : '') + '.');
+    }
+
+    const text = data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('\n') || '';
+    const product = extractJson(text);
+
+    if (!product || !product.name) {
+      console.error('AI raw:', text);
+      throw new Error('A IA não retornou um produto válido. Tente de novo.');
+    }
+
+    // normaliza categoria
+    let category = product.category;
+    if (!AI_CATEGORIES.includes(category)) {
+      category = catHint || 'exoticos';
+    }
+
+    const price = Number(product.price);
+    const deliveryDays = Math.max(0, parseInt(product.deliveryDays, 10) || 0);
+    let stock = product.stock;
+    if (stock === undefined || stock === '' || stock === 'null') stock = null;
+    else {
+      stock = parseInt(stock, 10);
+      if (isNaN(stock)) stock = null;
+    }
+
+    // preenche formulário (modo adicionar)
+    adminResetProductForm();
+    document.getElementById('admin-product-name').value = String(product.name).slice(0, 80);
+    document.getElementById('admin-product-desc').value = String(product.description || '');
+    document.getElementById('admin-product-price').value = isNaN(price) ? '' : Math.round(price * 100) / 100;
+    document.getElementById('admin-product-category').value = category;
+    document.getElementById('admin-product-delivery').value = deliveryDays;
+    document.getElementById('admin-product-stock').value = stock === null ? '' : stock;
+    // imagem fica a cargo do admin (Imgur)
+
+    document.getElementById('admin-product-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setAiStatus('Pronto! Revise o formulário e clique em Adicionar Produto.', 'ok');
+    showToast('Item gerado — revise e salve');
+  } catch (err) {
+    console.error(err);
+    setAiStatus(err.message || 'Erro ao gerar item.', 'error');
+    showToast(err.message || 'Erro ao gerar item.', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Gerar item';
+    }
+  }
+}

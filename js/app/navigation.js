@@ -27,6 +27,7 @@ function showView(viewName) {
   if (viewName === 'admin') {
     renderAdminProducts();
     renderAdminOrders();
+    loadAiApiKey();
   }
 }
 

@@ -181,6 +181,51 @@
 
         <!-- Tab: Produtos -->
         <div id="admin-tab-products" class="admin-tab-panel">
+          <div class="admin-card ai-card">
+            <h3>✨ Gerar produto com IA</h3>
+            <p class="text-muted admin-hint">Descreva a ideia do item. A IA preenche nome, descrição, preço, categoria e dias de entrega. Você revisa e salva.</p>
+            <div class="form-group">
+              <label>Chave da API Gemini (salva só neste navegador)</label>
+              <div class="ai-key-row">
+                <input type="password" id="ai-api-key" placeholder="AIza..." autocomplete="off"/>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="saveAiApiKey()">Salvar chave</button>
+              </div>
+              <p class="ai-key-help">Pegue grátis em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a></p>
+            </div>
+            <div class="form-group">
+              <label>Ideia do item</label>
+              <textarea id="ai-prompt" rows="2" placeholder="Ex: um bilhete VIP da Liga com acesso aos bastidores, tom premium e misterioso"></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Tom (opcional)</label>
+                <select id="ai-tone">
+                  <option value="premium">Premium / corporativo</option>
+                  <option value="sombrio">Sombrio / underground</option>
+                  <option value="tecnologico">Tecnológico / cyber</option>
+                  <option value="luxo">Luxo extremo</option>
+                  <option value="ilegal">Mercado negro</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Categoria preferida (opcional)</label>
+                <select id="ai-category-hint">
+                  <option value="">Deixar a IA escolher</option>
+                  <option value="equipamentos">Equipamentos</option>
+                  <option value="consumiveis">Consumíveis</option>
+                  <option value="servicos">Serviços</option>
+                  <option value="comida">Comida &amp; Bebida</option>
+                  <option value="ilegais">Ilegais / Mercado Negro</option>
+                  <option value="exoticos">Exóticos / Raros</option>
+                  <option value="utilidades">Utilidades</option>
+                  <option value="informacoes">Informações &amp; Favores</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary" id="btn-ai-generate" onclick="generateProductWithAI()">Gerar item</button>
+            <p class="ai-status" id="ai-status"></p>
+          </div>
+
           <div class="admin-split">
             <div class="admin-card">
               <h3 id="admin-product-form-title">Adicionar Produto</h3>
