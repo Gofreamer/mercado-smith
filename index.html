@@ -439,6 +439,9 @@
                 </div>
                 <button type="submit" class="btn btn-primary">Lançar</button>
               </form>
+              <hr style="border:none;border-top:1px solid var(--border);margin:16px 0"/>
+              <p class="text-muted admin-hint">Manutenção Firebase</p>
+              <button type="button" class="btn btn-ghost btn-sm text-danger" onclick="(function(){var u=document.getElementById('admin-card-uid').value;if(u)adminClearPlayerLedger(u);else showToast('Carregue um jogador.','error');})()">Limpar extrato do jogador</button>
             </div>
           </div>
         </div>

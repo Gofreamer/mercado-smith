@@ -1262,14 +1262,19 @@ async function adminViewPlayerInventory(uid) {
     }
     const inv = Object.entries(u.inventory || {}).map(([id, item]) => ({ id, ...item }));
     inv.sort((a, b) => (b.boughtAt || 0) - (a.boughtAt || 0));
+    const ledgerCount = Object.keys(u.ledger || {}).length;
 
     box.innerHTML = `
       <div class="admin-card" style="margin-top:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
           <h3>Inventário — ${escapeHTML(u.name || uid)}</h3>
-          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('admin-player-detail').classList.add('hidden')">Fechar</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm text-danger" onclick="adminClearPlayerInventory('${uid}')">Limpar inventário</button>
+            <button class="btn btn-ghost btn-sm text-danger" onclick="adminClearPlayerLedger('${uid}')">Limpar extrato (${ledgerCount})</button>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('admin-player-detail').classList.add('hidden')">Fechar</button>
+          </div>
         </div>
-        <p class="text-muted admin-hint">${inv.length} item(ns) · UID: ${uid}</p>
+        <p class="text-muted admin-hint">${inv.length} item(ns) · UID: ${uid} · Extrato: ${ledgerCount} linhas</p>
         ${inv.length === 0 ? '<div class="empty-state">Inventário vazio.</div>' : `
           <div class="admin-table-wrap">
             <table class="admin-table">
@@ -1278,9 +1283,9 @@ async function adminViewPlayerInventory(uid) {
                 ${inv.map(item => {
                   const safeName = String(item.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
                   return `
-                  <tr>
+                  <tr class="${item.used ? 'row-muted' : ''}">
                     <td>
-                      <div class="admin-prod-name">${escapeHTML(item.name || '—')}${item.illegal ? ' <span class="tag-illegal">Subsolo</span>' : ''}</div>
+                      <div class="admin-prod-name">${escapeHTML(item.name || '—')}${item.illegal ? ' <span class="tag-illegal">Subsolo</span>' : ''}${item.used ? ' <span class="status-pill status-held">Consumido</span>' : ''}</div>
                       <div class="admin-prod-desc">${escapeHTML(CATEGORY_LABELS[item.category] || item.category || '')}</div>
                     </td>
                     <td class="mono">${formatMoney(item.price)}</td>
@@ -1324,6 +1329,35 @@ async function adminRemovePlayerInventoryItem(uid, invKey, itemName) {
   } catch (e) {
     console.error(e);
     showToast('Erro ao remover item (rules do Firebase?).', 'error');
+  }
+}
+
+async function adminClearPlayerInventory(uid) {
+  if (!uid) return;
+  if (!confirm('Limpar TODO o inventário deste jogador?\nNão devolve saldo. Irreversível.')) return;
+  try {
+    await db.ref('users/' + uid + '/inventory').remove();
+    pushAdminLog({ type: 'inventory_clear', userId: uid });
+    showToast('Inventário limpo.');
+    await adminViewPlayerInventory(uid);
+    if (typeof renderAdminPlayers === 'function') renderAdminPlayers();
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao limpar inventário.', 'error');
+  }
+}
+
+async function adminClearPlayerLedger(uid) {
+  if (!uid) return;
+  if (!confirm('Limpar TODO o extrato bancário deste jogador?\nSaldo e inventário não mudam. Reduz carga no Firebase.')) return;
+  try {
+    await db.ref('users/' + uid + '/ledger').remove();
+    pushAdminLog({ type: 'ledger_clear', userId: uid });
+    showToast('Extrato limpo.');
+    await adminViewPlayerInventory(uid);
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao limpar extrato.', 'error');
   }
 }
 
