@@ -219,17 +219,35 @@ async function checkoutCart() {
 
   const total = getCartTotal();
   const balance = Number(state.profile?.balance) || 0;
-  if (balance < total) {
-    showToast(`Saldo insuficiente. Faltam ${formatMoney(total - balance)}.`, 'error');
+
+  let payTotal = total;
+  let discount = 0;
+  if (state.appliedCoupon && state.appliedCouponData) {
+    discount = calcCouponDiscount(total, state.appliedCouponData);
+    payTotal = Math.max(0, total - discount);
+  }
+  if (balance < payTotal) {
+    showToast(`Saldo insuficiente. Faltam ${formatMoney(payTotal - balance)}.`, 'error');
     return;
   }
 
-  const ok = confirm(
-    `Finalizar compra?\n\n` +
-    `${getCartCount()} item(ns)\n` +
-    `Total: ${formatMoney(total)}\n` +
-    `Saldo após: ${formatMoney(balance - total)}`
+  const rows = [
+    { label: 'Itens', value: `${getCartCount()} no carrinho` },
+    { label: 'Subtotal', value: formatMoney(total) }
+  ];
+  if (discount > 0) rows.push({ label: 'Desconto', value: `− ${formatMoney(discount)}`, success: true });
+  rows.push(
+    { label: 'Total', value: formatMoney(payTotal), success: true },
+    { label: 'Saldo após', value: formatMoney(balance - payTotal) }
   );
+
+  const ok = await gsConfirm({
+    title: 'Finalizar compra',
+    body: 'Confirme o checkout do carrinho Global Smith.',
+    confirmLabel: 'Pagar agora',
+    cancelLabel: 'Voltar',
+    rows
+  });
   if (!ok) return;
 
   const btn = document.getElementById('btn-checkout');

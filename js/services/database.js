@@ -213,23 +213,28 @@ async function buyProduct(productId) {
   }
 
   const deliveryInfo = product.deliveryDays > 0
-    ? `Chega em ~${product.deliveryDays} dia(s).`
-    : 'Entrega imediata.';
+    ? `Chega em ~${product.deliveryDays} dia(s)`
+    : 'Entrega imediata';
 
-  const warn = product.category === 'ilegais'
-    ? '\n\n⚠ Aquisição irregular — sem suporte oficial GS.'
-    : '';
-  const discLine = discInfo.pct > 0
-    ? `Evento −${discInfo.pct}%: ${formatMoney(listPrice)} → ${formatMoney(price)}\n`
-    : `Preço: ${formatMoney(price)}\n`;
+  const rows = [
+    { label: 'Item', value: product.name },
+    discInfo.pct > 0
+      ? { label: 'Preço', value: `${formatMoney(listPrice)} → ${formatMoney(price)} (−${discInfo.pct}%)`, success: true }
+      : { label: 'Preço', value: formatMoney(price), success: true },
+    { label: 'Saldo após', value: formatMoney(balance - price) },
+    { label: 'Entrega', value: deliveryInfo, muted: true }
+  ];
+  if (product.category === 'ilegais') {
+    rows.push({ label: 'Aviso', value: 'Aquisição irregular — sem suporte oficial GS', warn: true });
+  }
 
-  const ok = confirm(
-    `Confirmar compra?\n\n` +
-    `${product.name}\n` +
-    discLine +
-    `Saldo após: ${formatMoney(balance - price)}\n` +
-    `${deliveryInfo}${warn}`
-  );
+  const ok = await gsConfirm({
+    title: 'Confirmar compra',
+    body: 'Revise a operação antes de debitar o cartão GS.',
+    confirmLabel: 'Comprar agora',
+    cancelLabel: 'Cancelar',
+    rows
+  });
   if (!ok) return;
 
   await executePurchase([{ productId, qty: 1 }]);

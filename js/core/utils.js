@@ -33,6 +33,99 @@ function showToast(message, type = 'success') {
   }, 3200);
 }
 
+/** Modal de confirmação GS (substitui window.confirm) */
+let _gsConfirmResolver = null;
+
+function gsConfirm(opts) {
+  const {
+    title = 'Confirmar',
+    body = '',
+    confirmLabel = 'Confirmar',
+    cancelLabel = 'Cancelar',
+    danger = false,
+    rows = []
+  } = opts || {};
+
+  ensureConfirmModal();
+  const modal = document.getElementById('gs-confirm-modal');
+  const titleEl = document.getElementById('gs-confirm-title');
+  const bodyEl = document.getElementById('gs-confirm-body');
+  const rowsEl = document.getElementById('gs-confirm-rows');
+  const okBtn = document.getElementById('gs-confirm-ok');
+  const cancelBtn = document.getElementById('gs-confirm-cancel');
+
+  titleEl.textContent = title;
+  bodyEl.innerHTML = body || '';
+  bodyEl.classList.toggle('hidden', !body);
+
+  if (rows && rows.length) {
+    rowsEl.innerHTML = rows.map(r => `
+      <div class="gs-confirm-row">
+        <span class="gs-confirm-row-label">${escapeHTML(r.label)}</span>
+        <span class="gs-confirm-row-value ${r.muted ? 'muted' : ''} ${r.success ? 'success' : ''} ${r.warn ? 'warning' : ''}">${escapeHTML(r.value)}</span>
+      </div>
+    `).join('');
+    rowsEl.classList.remove('hidden');
+  } else {
+    rowsEl.innerHTML = '';
+    rowsEl.classList.add('hidden');
+  }
+
+  okBtn.textContent = confirmLabel;
+  cancelBtn.textContent = cancelLabel;
+  okBtn.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  return new Promise((resolve) => {
+    _gsConfirmResolver = resolve;
+  });
+}
+
+function ensureConfirmModal() {
+  if (document.getElementById('gs-confirm-modal')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'gs-confirm-modal';
+  wrap.className = 'modal';
+  wrap.innerHTML = `
+    <div class="modal-dialog modal-dialog-confirm" role="dialog" aria-modal="true">
+      <div class="gs-confirm-card">
+        <div class="gs-confirm-header">
+          <div class="gs-confirm-mark">GS</div>
+          <h3 id="gs-confirm-title">Confirmar</h3>
+        </div>
+        <p id="gs-confirm-body" class="gs-confirm-body"></p>
+        <div id="gs-confirm-rows" class="gs-confirm-rows hidden"></div>
+        <div class="gs-confirm-actions">
+          <button type="button" class="btn btn-ghost" id="gs-confirm-cancel">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="gs-confirm-ok">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(wrap);
+
+  const close = (val) => {
+    wrap.classList.remove('open');
+    if (!state.cartOpen && !document.getElementById('product-modal')?.classList.contains('open')) {
+      document.body.style.overflow = '';
+    }
+    const r = _gsConfirmResolver;
+    _gsConfirmResolver = null;
+    if (r) r(val);
+  };
+
+  wrap.addEventListener('click', (e) => {
+    if (e.target === wrap) close(false);
+  });
+  document.getElementById('gs-confirm-cancel').onclick = () => close(false);
+  document.getElementById('gs-confirm-ok').onclick = () => close(true);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && wrap.classList.contains('open')) close(false);
+  });
+}
+
 function formatDate(ts) {
   if (!ts) return '—';
   return new Date(ts).toLocaleDateString('pt-BR', {
