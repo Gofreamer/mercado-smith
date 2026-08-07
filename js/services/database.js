@@ -36,6 +36,16 @@ function listenOrders(uid) {
   });
 }
 
+
+function listenAllUsers() {
+  db.ref('users').on('value', (snap) => {
+    state.allUsers = snap.val() || {};
+    if (state.currentView === 'admin') {
+      if (typeof renderAdminPlayers === 'function') renderAdminPlayers();
+    }
+  });
+}
+
 function listenAllOrders() {
   db.ref('orders').on('value', (snap) => {
     const data = snap.val() || {};
@@ -386,6 +396,9 @@ function updateAdminVisibility() {
     listenCoupons();
     listenOffers();
     listenAdminLog();
+  }
+  if (isAdmin && (!state.allUsers || Object.keys(state.allUsers).length === 0)) {
+    listenAllUsers();
   }
 }
 

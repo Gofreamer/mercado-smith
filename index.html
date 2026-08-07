@@ -210,6 +210,7 @@
           <button class="admin-tab active" onclick="switchAdminTab('products', this)">Produtos</button>
           <button class="admin-tab" onclick="switchAdminTab('orders', this)">Pedidos / Entregas</button>
           <button class="admin-tab" onclick="switchAdminTab('balance', this)">Saldo</button>
+          <button class="admin-tab" onclick="switchAdminTab('players', this)">Jogadores</button>
           <button class="admin-tab" onclick="switchAdminTab('access', this)">Acessos</button>
           <button class="admin-tab" onclick="switchAdminTab('coupons', this)">Cupons</button>
           <button class="admin-tab" onclick="switchAdminTab('offers', this)">Ofertas</button>
@@ -351,6 +352,15 @@
               </div>
               <button type="submit" class="btn btn-primary">Atualizar Saldo</button>
             </form>
+          </div>
+        </div>
+
+        <!-- Tab: Jogadores -->
+        <div id="admin-tab-players" class="admin-tab-panel hidden">
+          <div class="admin-card admin-card-wide">
+            <h3>Jogadores</h3>
+            <p class="text-muted admin-hint">Ver inventário e ajustar rank. Asterisco (*) no rank = override manual.</p>
+            <div id="admin-players-list"></div>
           </div>
         </div>
 

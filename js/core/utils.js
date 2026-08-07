@@ -160,6 +160,10 @@ function getRepStats(profile, orders) {
 }
 
 function getUserRank(profile, orders) {
+  if (profile?.rankOverride) {
+    const forced = RANK_THRESHOLDS.find(r => r.id === profile.rankOverride);
+    if (forced) return forced;
+  }
   const { spent, orders: orderCount } = getRepStats(profile, orders);
   let current = RANK_THRESHOLDS[0];
   for (const r of RANK_THRESHOLDS) {

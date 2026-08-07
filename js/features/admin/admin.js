@@ -14,7 +14,7 @@ function renderAdminProducts() {
 
   const products = Object.entries(state.products)
     .map(([id, p]) => ({ id, ...p }))
-    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || (a.name || '').localeCompare(b.name || ''));
 
   if (products.length === 0) {
     el.innerHTML = '<div class="empty-state">Nenhum produto cadastrado.</div>';
@@ -31,6 +31,7 @@ function renderAdminProducts() {
             <th>Estoque</th>
             <th>Entrega</th>
             <th>Categoria</th>
+            <th>Adicionado</th>
             <th></th>
           </tr>
         </thead>
@@ -48,6 +49,7 @@ function renderAdminProducts() {
                 <td class="mono">${stock}</td>
                 <td>${delivery}</td>
                 <td>${escapeHTML(CATEGORY_LABELS[p.category] || p.category || '')}</td>
+                <td style="font-size:12px;white-space:nowrap">${p.createdAt ? formatDateTime(p.createdAt) : '—'}</td>
                 <td class="admin-actions-cell">
                   <button class="btn btn-ghost btn-sm" onclick="adminEditProduct('${p.id}')">Editar</button>
                   <button class="btn btn-ghost btn-sm text-danger" onclick="adminDeleteProduct('${p.id}')">Apagar</button>
@@ -343,6 +345,7 @@ function switchAdminTab(tab, btn) {
   if (tab === 'coupons') renderAdminCoupons();
   if (tab === 'offers') renderAdminOffers();
   if (tab === 'log') renderAdminLog();
+  if (tab === 'players') renderAdminPlayers();
   if (tab === 'access') { /* form only */ }
 }
 
@@ -1148,4 +1151,193 @@ async function adminPostFeed(e) {
   await pushFeed(text, 'admin');
   showToast('Feed publicado.');
   e.target.reset();
+}
+
+/* ---------- JOGADORES: inventário + rank ---------- */
+
+function renderAdminPlayers() {
+  const el = document.getElementById('admin-players-list');
+  if (!el) return;
+
+  const users = Object.entries(state.allUsers || {})
+    .map(([id, u]) => ({ id, ...u }))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  if (!users.length) {
+    el.innerHTML = '<div class="empty-state">Nenhum usuário carregado. Aguarde ou verifique as rules do Firebase (users read para admin).</div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Jogador</th>
+            <th>Saldo</th>
+            <th>Rank</th>
+            <th>Rep (gasto / pedidos)</th>
+            <th>Itens</th>
+            <th>Subsolo</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${users.map(u => {
+            const rank = getUserRank(u, null);
+            const invCount = Object.keys(u.inventory || {}).length;
+            const spent = Number(u.repSpent) || 0;
+            const orders = Number(u.repOrders) || 0;
+            return `
+              <tr>
+                <td>
+                  <div class="admin-prod-name">${escapeHTML(u.name || '—')}</div>
+                  <div class="admin-prod-desc">${escapeHTML(u.email || u.id)}</div>
+                </td>
+                <td class="mono">${formatMoney(u.balance)}</td>
+                <td><span class="rank-badge" style="background:${rank.color}22;color:${rank.color};border-color:${rank.color}55">${escapeHTML(rank.label)}${u.rankOverride ? ' *' : ''}</span></td>
+                <td class="mono" style="font-size:12px">${formatMoney(spent)} · ${orders}</td>
+                <td>${invCount}</td>
+                <td>${u.blackMarketAccess ? '<span class="tag-illegal">Sim</span>' : '—'}</td>
+                <td class="admin-actions-cell">
+                  <button class="btn btn-ghost btn-sm" onclick="adminViewPlayerInventory('${u.id}')">Inventário</button>
+                  <button class="btn btn-ghost btn-sm" onclick="adminOpenRankEditor('${u.id}')">Rank</button>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div id="admin-player-detail" class="admin-player-detail hidden"></div>
+  `;
+}
+
+async function adminViewPlayerInventory(uid) {
+  const box = document.getElementById('admin-player-detail');
+  if (!box) return;
+  box.classList.remove('hidden');
+  box.innerHTML = '<div class="empty-state">Carregando inventário...</div>';
+
+  try {
+    const snap = await db.ref('users/' + uid).once('value');
+    const u = snap.val();
+    if (!u) {
+      box.innerHTML = '<div class="empty-state">Usuário não encontrado.</div>';
+      return;
+    }
+    const inv = Object.entries(u.inventory || {}).map(([id, item]) => ({ id, ...item }));
+    inv.sort((a, b) => (b.boughtAt || 0) - (a.boughtAt || 0));
+
+    box.innerHTML = `
+      <div class="admin-card" style="margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <h3>Inventário — ${escapeHTML(u.name || uid)}</h3>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('admin-player-detail').classList.add('hidden')">Fechar</button>
+        </div>
+        <p class="text-muted admin-hint">${inv.length} item(ns) · UID: ${uid}</p>
+        ${inv.length === 0 ? '<div class="empty-state">Inventário vazio.</div>' : `
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead><tr><th>Item</th><th>Preço pago</th><th>Status</th><th>Comprado</th></tr></thead>
+              <tbody>
+                ${inv.map(item => `
+                  <tr>
+                    <td>
+                      <div class="admin-prod-name">${escapeHTML(item.name || '—')}${item.illegal ? ' <span class="tag-illegal">Subsolo</span>' : ''}</div>
+                      <div class="admin-prod-desc">${escapeHTML(CATEGORY_LABELS[item.category] || item.category || '')}</div>
+                    </td>
+                    <td class="mono">${formatMoney(item.price)}</td>
+                    <td><span class="status-pill ${statusClass(item.status || 'delivered')}">${formatDeliveryLabel(item)}</span></td>
+                    <td style="font-size:12px">${item.boughtAt ? formatDateTime(item.boughtAt) : '—'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    `;
+    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    console.error(e);
+    box.innerHTML = '<div class="empty-state">Erro ao carregar inventário (rules?).</div>';
+  }
+}
+
+function adminOpenRankEditor(uid) {
+  const u = state.allUsers?.[uid];
+  if (!u) {
+    showToast('Usuário não encontrado na lista.', 'error');
+    return;
+  }
+  const current = getUserRank(u, null);
+  const options = RANK_THRESHOLDS.map(r =>
+    `<option value="${r.id}" ${current.id === r.id ? 'selected' : ''}>${r.label}</option>`
+  ).join('');
+
+  const box = document.getElementById('admin-player-detail');
+  if (!box) return;
+  box.classList.remove('hidden');
+  box.innerHTML = `
+    <div class="admin-card" style="margin-top:16px;max-width:480px">
+      <h3>Ajustar rank — ${escapeHTML(u.name || uid)}</h3>
+      <p class="text-muted admin-hint">Atual: <strong style="color:${current.color}">${current.label}</strong>
+        ${u.rankOverride ? ' (override manual)' : ' (por reputação)'}
+      </p>
+      <div class="form-group">
+        <label>Novo rank</label>
+        <select id="admin-rank-select">${options}</select>
+      </div>
+      <div class="form-group">
+        <label>Modo</label>
+        <select id="admin-rank-mode">
+          <option value="override">Forçar rank (override)</option>
+          <option value="stats">Ajustar repSpent/repOrders para o mínimo do rank</option>
+          <option value="clear">Remover override (voltar à reputação)</option>
+        </select>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" onclick="adminApplyRank('${uid}')">Aplicar</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('admin-player-detail').classList.add('hidden')">Cancelar</button>
+      </div>
+    </div>
+  `;
+  box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function adminApplyRank(uid) {
+  const rankId = document.getElementById('admin-rank-select')?.value;
+  const mode = document.getElementById('admin-rank-mode')?.value || 'override';
+  const threshold = RANK_THRESHOLDS.find(r => r.id === rankId);
+  if (!threshold) {
+    showToast('Rank inválido.', 'error');
+    return;
+  }
+
+  const updates = {};
+  try {
+    if (mode === 'clear') {
+      updates[`users/${uid}/rankOverride`] = null;
+    } else if (mode === 'override') {
+      updates[`users/${uid}/rankOverride`] = rankId;
+    } else if (mode === 'stats') {
+      const snap = await db.ref('users/' + uid).once('value');
+      const u = snap.val() || {};
+      updates[`users/${uid}/repSpent`] = Math.max(Number(u.repSpent) || 0, threshold.spent);
+      updates[`users/${uid}/repOrders`] = Math.max(Number(u.repOrders) || 0, threshold.orders);
+      updates[`users/${uid}/rankOverride`] = null;
+    }
+
+    await db.ref().update(updates);
+    if (typeof pushAdminLog === 'function') {
+      pushAdminLog({ type: 'rank', userId: uid, rankId, mode });
+    }
+    showToast('Rank atualizado: ' + threshold.label);
+    document.getElementById('admin-player-detail')?.classList.add('hidden');
+    renderAdminPlayers();
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao atualizar rank.', 'error');
+  }
 }

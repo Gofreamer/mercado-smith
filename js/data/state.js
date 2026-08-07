@@ -6,6 +6,7 @@ const state = {
   products: {},
   orders: [],
   allOrders: [],
+  allUsers: {},
   cart: {},
   currentView: 'market',
   cartOpen: false,
