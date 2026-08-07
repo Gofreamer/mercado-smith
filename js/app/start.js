@@ -13,6 +13,7 @@ auth.onAuthStateChanged(async (user) => {
     listenOffers();
     listenEvents();
     listenVendors();
+    listenSiteSettings();
     showView('market');
   } else {
     state.user = null;

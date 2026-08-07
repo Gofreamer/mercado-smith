@@ -365,51 +365,117 @@ function filterBlackMarket() {
 }
 
 
-function renderMarketSidePanels() {
-  const feedCol = document.getElementById('market-col-feed');
-  const postCol = document.getElementById('market-col-post');
-  if (feedCol) {
-    const items = (state.feed || []).slice(0, 10);
-    feedCol.innerHTML = `
-      <div class="market-side-card">
-        <h3 class="market-side-title">Canal GS</h3>
-        ${items.length ? items.map(e => `
-          <div class="feed-item feed-${escapeHTML(e.type || 'info')}">
-            <span class="feed-time">${timeAgo(e.createdAt)}</span>
-            <span class="feed-text">${escapeHTML(e.text)}</span>
-          </div>
-        `).join('') : '<p class="text-muted" style="font-size:12px">Mercado em silêncio…</p>'}
-      </div>
-    `;
+function getMarketPromo() {
+  // 1) evento ativo com promoImage
+  const active = (typeof getActiveEvents === 'function') ? getActiveEvents() : [];
+  for (const ev of active) {
+    if (ev.promoImage) {
+      return {
+        image: ev.promoImage,
+        title: ev.tagLabel || ev.name || 'Evento',
+        subtitle: ev.bannerText || ev.description || '',
+        color: ev.tagColor || '#6366f1',
+        href: null
+      };
+    }
   }
-  if (postCol && state.profile) {
-    const rank = getUserRank(state.profile, state.orders);
-    const bal = Number(state.profile.balance) || 0;
-    const inv = state.profile.inventory || {};
-    const inTransit = Object.values(inv).filter(i => {
-      const s = i.status || 'delivered';
-      return s === 'in_transit' || s === 'held_customs' || s === 'resent';
-    }).length;
-    const wishes = Object.keys(state.wishlist || {}).length;
-    const pendingOffers = (state.offers || []).filter(o =>
-      o.userId === state.user?.uid && (o.status === 'pending' || o.status === 'counter')
-    ).length;
-    postCol.innerHTML = `
-      <div class="market-side-card">
-        <h3 class="market-side-title">Seu posto</h3>
-        <div class="post-stat"><span>Saldo</span><strong class="success">${formatMoney(bal)}</strong></div>
-        <div class="post-stat"><span>Rank</span><strong style="color:${rank.color}">${rank.label}</strong></div>
-        <div class="post-stat"><span>Em trânsito</span><strong class="${inTransit ? 'warning' : ''}">${inTransit}</strong></div>
-        <div class="post-stat"><span>Desejos</span><strong>${wishes}</strong></div>
-        ${pendingOffers ? `<div class="post-stat"><span>Negociações</span><strong>${pendingOffers}</strong></div>` : ''}
-        <div class="post-actions">
-          <button class="btn btn-ghost btn-sm" onclick="showView('bank')">Banco</button>
-          <button class="btn btn-ghost btn-sm" onclick="showView('orders')">Pedidos</button>
-          <button class="btn btn-ghost btn-sm" onclick="showView('wishlist')">Desejos</button>
+  // 2) siteSettings.promo
+  const site = state.siteSettings || {};
+  if (site.promoImage) {
+    return {
+      image: site.promoImage,
+      title: site.promoTitle || 'Global Smith',
+      subtitle: site.promoSubtitle || '',
+      color: site.promoColor || '#6366f1',
+      href: site.promoLink || null
+    };
+  }
+  // 3) fallback: primeiro evento ativo (sem imagem) ou marca GS
+  if (active[0]) {
+    return {
+      image: null,
+      title: active[0].tagLabel || active[0].name,
+      subtitle: active[0].bannerText || active[0].description || 'Evento em andamento',
+      color: active[0].tagColor || '#e11d48',
+      href: null
+    };
+  }
+  return {
+    image: null,
+    title: 'Global Smith',
+    subtitle: 'Catálogo premium · entrega sob contrato',
+    color: '#6366f1',
+    href: null
+  };
+}
+
+function renderMarketSidePanels() {
+  const promoCol = document.getElementById('market-col-feed');
+  const postCol = document.getElementById('market-col-post');
+
+  if (promoCol) {
+    const promo = getMarketPromo();
+    const style = promo.image
+      ? `background-image:url('${escapeHTML(promo.image)}')`
+      : `background: linear-gradient(160deg, ${escapeHTML(promo.color)}55 0%, #0b0e14 55%, #12161e 100%)`;
+    promoCol.innerHTML = `
+      <div class="market-promo" style="${style}">
+        <div class="market-promo-overlay">
+          <span class="market-promo-kicker">Destaque</span>
+          <h3 class="market-promo-title">${escapeHTML(promo.title)}</h3>
+          ${promo.subtitle ? `<p class="market-promo-sub">${escapeHTML(promo.subtitle)}</p>` : ''}
         </div>
       </div>
     `;
-  } else if (postCol) {
-    postCol.innerHTML = '';
+  }
+
+  if (postCol) {
+    let postHtml = '';
+    if (state.profile) {
+      const rank = getUserRank(state.profile, state.orders);
+      const bal = Number(state.profile.balance) || 0;
+      const inv = state.profile.inventory || {};
+      const inTransit = Object.values(inv).filter(i => {
+        const s = i.status || 'delivered';
+        return s === 'in_transit' || s === 'held_customs' || s === 'resent';
+      }).length;
+      const wishes = Object.keys(state.wishlist || {}).length;
+      const pendingOffers = (state.offers || []).filter(o =>
+        o.userId === state.user?.uid && (o.status === 'pending' || o.status === 'counter')
+      ).length;
+      postHtml += `
+        <div class="market-side-card">
+          <h3 class="market-side-title">Seu posto</h3>
+          <div class="post-stat"><span>Saldo</span><strong class="success">${formatMoney(bal)}</strong></div>
+          <div class="post-stat"><span>Rank</span><strong style="color:${rank.color}">${rank.label}</strong></div>
+          <div class="post-stat"><span>Em trânsito</span><strong class="${inTransit ? 'warning' : ''}">${inTransit}</strong></div>
+          <div class="post-stat"><span>Desejos</span><strong>${wishes}</strong></div>
+          ${pendingOffers ? `<div class="post-stat"><span>Negociações</span><strong>${pendingOffers}</strong></div>` : ''}
+          <div class="post-actions">
+            <button class="btn btn-ghost btn-sm" onclick="showView('bank')">Banco</button>
+            <button class="btn btn-ghost btn-sm" onclick="showView('orders')">Pedidos</button>
+            <button class="btn btn-ghost btn-sm" onclick="showView('wishlist')">Desejos</button>
+          </div>
+        </div>
+      `;
+    }
+    const items = (state.feed || []).slice(0, 8);
+    postHtml += `
+      <div class="market-side-card market-feed-card">
+        <h3 class="market-side-title">Canal GS</h3>
+        <div class="feed-compact">
+          ${items.length ? items.map(e => `
+            <div class="feed-compact-item">
+              <span class="feed-compact-dot feed-dot-${escapeHTML(e.type || 'info')}"></span>
+              <div class="feed-compact-body">
+                <p class="feed-compact-text">${escapeHTML(e.text)}</p>
+                <span class="feed-compact-time">${timeAgo(e.createdAt)}</span>
+              </div>
+            </div>
+          `).join('') : '<p class="text-muted" style="font-size:12px">Mercado em silêncio…</p>'}
+        </div>
+      </div>
+    `;
+    postCol.innerHTML = postHtml;
   }
 }

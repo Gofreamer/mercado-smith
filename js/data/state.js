@@ -20,6 +20,7 @@ const state = {
   appliedCoupon: null,
   events: {},
   vendors: {},
+  siteSettings: {},
   vendorFilter: '',
   loanRequests: [],
   /** snapshot de estoque anterior para notificar restock da wishlist */

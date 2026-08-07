@@ -35,11 +35,24 @@ function getAIApp() {
   return aiApp;
 }
 
-async function jetStyleGenerate(prompt, modelName = "gemini-3.6-flash") {
+async function jetStyleGenerate(prompt, modelName = "gemini-2.0-flash") {
   const ai = getAI(getAIApp(), { backend: new GoogleAIBackend() });
-  const model = getGenerativeModel(ai, { model: modelName });
-  const result = await model.generateContent(prompt);
-  return result.response.text();
+  const candidates = [modelName, "gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"];
+  const tried = new Set();
+  let lastErr;
+  for (const m of candidates) {
+    if (tried.has(m)) continue;
+    tried.add(m);
+    try {
+      const model = getGenerativeModel(ai, { model: m });
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    } catch (e) {
+      lastErr = e;
+      console.warn("AI model failed:", m, e?.message || e);
+    }
+  }
+  throw lastErr || new Error("Nenhum modelo Gemini disponível");
 }
 
 const CATEGORIES = [
@@ -384,4 +397,64 @@ window.generateProductBatchWithFirebaseAI = async function generateProductBatchW
   if (qty > 10) qty = 10;
   if (qtyEl) qtyEl.value = String(qty);
   await runFirebaseGenerate(qty);
+};
+
+
+window.generateVendorWithFirebaseAI = async function generateVendorWithFirebaseAI(ideaArg, toneArg) {
+  const idea = (ideaArg || document.getElementById("vendor-ai-idea")?.value || "").trim();
+  const tone = (toneArg || document.getElementById("vendor-ai-tone")?.value || "premium corporativo").trim() || "premium corporativo";
+  if (!idea) {
+    if (typeof showToast === "function") showToast("Descreva a vitrine.", "error");
+    return;
+  }
+  const btn = document.querySelector('button[onclick="generateVendorWithAI()"]');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Gerando…";
+  }
+  try {
+    const prompt = `Você cria vitrines/vendedores NPC para o mercado fictício Global Smith (RP cyber-corporativo).
+Responda APENAS com um JSON válido (sem markdown), neste formato:
+{
+  "name": "nome curto da vitrine (até 48 chars)",
+  "slug": "slug-url-simples",
+  "tagline": "frase curta de marketing (até 80 chars)",
+  "tone": "uma palavra: premium|show|underground|courier|corporativo",
+  "description": "2 frases em português BR, tom in-world, sem emoji"
+}
+Ideia do mestre: ${idea}
+Tom pedido: ${tone}
+Regras: português BR; nome próprio quando fizer sentido (ex: Nina Riders Merch); sem inventar URLs.`;
+
+    const text = await jetStyleGenerate(prompt, "gemini-2.0-flash");
+    const data = extractJson(text);
+    if (!data || !data.name) {
+      throw new Error("Resposta da IA inválida");
+    }
+    const name = String(data.name).slice(0, 48);
+    let slug = String(data.slug || name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+    if (!slug) slug = "vitrine";
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    };
+    set("vendor-name", name);
+    set("vendor-slug", slug);
+    set("vendor-tagline", String(data.tagline || "").slice(0, 80));
+    set("vendor-tone", String(data.tone || tone).slice(0, 40));
+    set("vendor-desc", String(data.description || "").slice(0, 400));
+    if (typeof showToast === "function") showToast("Vitrine gerada pela IA — revise e salve.");
+  } catch (err) {
+    console.error(err);
+    const msg = err?.message || String(err);
+    if (typeof showToast === "function") {
+      showToast("IA falhou: " + msg.slice(0, 120) + " — tentando local…", "error");
+    }
+    if (typeof generateVendorLocal === "function") generateVendorLocal();
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Gerar com IA";
+    }
+  }
 };

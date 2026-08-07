@@ -31,6 +31,15 @@ function listenProducts() {
   });
 }
 
+function listenSiteSettings() {
+  db.ref('siteSettings').on('value', (snap) => {
+    state.siteSettings = snap.val() || {};
+    if (state.currentView === 'market' && typeof renderMarketSidePanels === 'function') {
+      renderMarketSidePanels();
+    }
+  });
+}
+
 function listenVendors() {
   db.ref('vendors').on('value', (snap) => {
     state.vendors = snap.val() || {};
@@ -467,6 +476,7 @@ function updateAdminVisibility() {
     listenEvents();
     if (typeof listenLoanRequests === 'function') listenLoanRequests();
     listenVendors();
+    listenSiteSettings();
   }
   if (isAdmin && (!state.allUsers || Object.keys(state.allUsers).length === 0)) {
     listenAllUsers();

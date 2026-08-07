@@ -639,6 +639,7 @@ async function adminSaveEvent(e) {
   const tagLabel = document.getElementById('event-tag').value.trim() || name;
   const tagColor = document.getElementById('event-color').value || '#e11d48';
   const bannerText = document.getElementById('event-banner-text').value.trim();
+  const promoImage = document.getElementById('event-promo-image')?.value.trim() || '';
   const description = document.getElementById('event-desc').value.trim();
   const discountPercent = parseFloat(document.getElementById('event-discount').value) || 0;
   const startsRaw = document.getElementById('event-starts').value;
@@ -663,6 +664,7 @@ async function adminSaveEvent(e) {
     tagLabel,
     tagColor,
     bannerText,
+    promoImage: promoImage || null,
     description,
     discountPercent,
     productIds,
@@ -718,6 +720,7 @@ function adminEditEvent(id) {
   document.getElementById('event-tag').value = ev.tagLabel || '';
   document.getElementById('event-color').value = ev.tagColor || '#e11d48';
   document.getElementById('event-banner-text').value = ev.bannerText || '';
+  if (document.getElementById('event-promo-image')) document.getElementById('event-promo-image').value = ev.promoImage || '';
   document.getElementById('event-desc').value = ev.description || '';
   document.getElementById('event-discount').value = ev.discountPercent || 0;
   document.getElementById('event-products').value = (ev.productIds || []).join(', ');
