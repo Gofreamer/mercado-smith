@@ -1,5 +1,6 @@
 /* Global Smith — Firebase AI Logic (Gemini via projeto Firebase) */
-import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js';
+import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-app-check.js';
 import { getAI, getGenerativeModel, GoogleAIBackend } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-ai.js';
 
 const aiFirebaseConfig = {
@@ -12,6 +13,8 @@ const aiFirebaseConfig = {
   appId: '1:1084544496126:web:6a3e7bdff7e246e88bd0af'
 };
 
+const RECAPTCHA_ENTERPRISE_SITE_KEY = '6Lc7HHktAAAAEEGKR8uD0Az8-n-QeHAPZ2aqNGV';
+
 let aiModelPromise = null;
 
 function getOrCreateAiApp() {
@@ -20,12 +23,24 @@ function getOrCreateAiApp() {
   return initializeApp(aiFirebaseConfig, 'gs-ai');
 }
 
+function ensureAppCheck(app) {
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY),
+      isTokenAutoRefreshEnabled: true
+    });
+  } catch (err) {
+    // já inicializado
+    console.warn('App Check AI app:', err?.message || err);
+  }
+}
+
 async function getAiModel() {
   if (aiModelPromise) return aiModelPromise;
   aiModelPromise = (async () => {
     const app = getOrCreateAiApp();
+    ensureAppCheck(app);
     const ai = getAI(app, { backend: new GoogleAIBackend() });
-    // modelos comuns; tenta flash recente
     return getGenerativeModel(ai, {
       model: 'gemini-2.0-flash',
       generationConfig: {
@@ -143,12 +158,14 @@ Gere um único produto.`;
     console.error(err);
     const msg = (err && err.message) ? err.message : String(err);
     let friendly = msg;
-    if (/API.?key|permission|403|PERMISSION|not enabled|AI Logic/i.test(msg)) {
-      friendly = 'Ative o Firebase AI Logic no console e libere o Gemini Developer API para o projeto.';
+    if (/inactive|onboarding/i.test(msg)) {
+      friendly = 'AI Logic ainda inativo. Complete o onboarding no console e registre o App Check.';
+    } else if (/App Check|appCheck|403/i.test(msg)) {
+      friendly = 'App Check bloqueou. Confirme a site key no console e se o domínio está na chave reCAPTCHA (pages.dev + localhost).';
     } else if (/429|quota|rate/i.test(msg)) {
       friendly = 'Cota do Firebase AI atingida. Use Gerar local ou tente mais tarde.';
-    } else if (/App Check|appCheck/i.test(msg)) {
-      friendly = 'App Check pode estar bloqueando. No console AI Logic, configure App Check ou modo debug.';
+    } else if (/API.?key|permission|PERMISSION|not enabled/i.test(msg)) {
+      friendly = 'Ative o Firebase AI Logic e o Gemini Developer API no projeto.';
     }
     if (typeof setAiStatus === 'function') setAiStatus(friendly, 'error');
     showToast(friendly, 'error');
