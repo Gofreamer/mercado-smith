@@ -16,12 +16,27 @@ function listenUserProfile(uid) {
 
 function listenProducts() {
   db.ref('products').on('value', (snap) => {
-    state.products = snap.val() || {};
+    const next = snap.val() || {};
+    if (typeof checkWishlistRestocks === 'function') {
+      checkWishlistRestocks(next);
+    }
+    state.products = next;
     if (state.currentView === 'market') renderProducts();
     if (state.currentView === 'blackmarket') renderBlackMarket();
     if (state.currentView === 'admin') renderAdminProducts();
     if (state.currentView === 'wishlist') renderWishlist();
     if (state.cartOpen) renderCart();
+  });
+}
+
+function listenEvents() {
+  db.ref('events').on('value', (snap) => {
+    state.events = snap.val() || {};
+    if (typeof renderEventBanner === 'function') renderEventBanner();
+    if (state.currentView === 'market') renderProducts();
+    if (state.currentView === 'blackmarket') renderBlackMarket();
+    if (state.currentView === 'admin' && typeof renderAdminEvents === 'function') renderAdminEvents();
+    if (state.currentView === 'wishlist') renderWishlist();
   });
 }
 
@@ -81,6 +96,12 @@ function listenOffers() {
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     if (state.currentView === 'admin') renderAdminOffers();
     if (state.currentView === 'profile') renderProfile();
+    const nego = document.getElementById('nego-modal');
+    if (nego && nego.classList.contains('open')) {
+      const pid = nego.dataset.productId;
+      const oid = nego.dataset.offerId;
+      if (pid || oid) openNegotiationModal(pid, oid);
+    }
   });
 }
 
@@ -174,7 +195,11 @@ async function buyProduct(productId) {
     return;
   }
 
-  const price = Number(product.price) || 0;
+  const listPrice = Number(product.price) || 0;
+  const discInfo = (typeof getEventDiscountForProduct === 'function')
+    ? getEventDiscountForProduct(productId, listPrice)
+    : { discount: 0, final: listPrice, pct: 0 };
+  const price = discInfo.final;
   const balance = Number(state.profile.balance) || 0;
 
   if (balance < price) {
@@ -193,11 +218,14 @@ async function buyProduct(productId) {
   const warn = product.category === 'ilegais'
     ? '\n\n⚠ Aquisição irregular — sem suporte oficial GS.'
     : '';
+  const discLine = discInfo.pct > 0
+    ? `Evento −${discInfo.pct}%: ${formatMoney(listPrice)} → ${formatMoney(price)}\n`
+    : `Preço: ${formatMoney(price)}\n`;
 
   const ok = confirm(
     `Confirmar compra?\n\n` +
     `${product.name}\n` +
-    `Preço: ${formatMoney(price)}\n` +
+    discLine +
     `Saldo após: ${formatMoney(balance - price)}\n` +
     `${deliveryInfo}${warn}`
   );
@@ -228,7 +256,11 @@ async function executePurchase(lines) {
       showToast(`${p.name}: só restam ${p.stock} unidades.`, 'error');
       return false;
     }
-    total += (Number(p.price) || 0) * line.qty;
+    const list = Number(p.price) || 0;
+    const disc = (typeof getEventDiscountForProduct === 'function')
+      ? getEventDiscountForProduct(line.productId, list)
+      : { final: list };
+    total += disc.final * line.qty;
   }
 
   // Cupom
@@ -268,7 +300,11 @@ async function executePurchase(lines) {
 
   for (const line of lines) {
     const p = state.products[line.productId];
-    const price = Number(p.price) || 0;
+    const listPrice = Number(p.price) || 0;
+    const disc = (typeof getEventDiscountForProduct === 'function')
+      ? getEventDiscountForProduct(line.productId, listPrice)
+      : { final: listPrice, pct: 0 };
+    const price = disc.final;
     const lineTotal = price * line.qty;
     // discount applied proportionally only at balance level
     const delivery = computeDelivery(p);
@@ -287,7 +323,8 @@ async function executePurchase(lines) {
         estimatedDelivery: delivery.estimatedDelivery,
         deliveredAt: delivery.deliveredAt,
         illegal: !!isIllegal,
-        statusMessage: STATUS_MESSAGES[delivery.status] || ''
+        statusMessage: STATUS_MESSAGES[delivery.status] || '',
+        eventDiscountPct: disc.pct || 0
       };
     }
 
@@ -396,6 +433,7 @@ function updateAdminVisibility() {
     listenCoupons();
     listenOffers();
     listenAdminLog();
+    listenEvents();
   }
   if (isAdmin && (!state.allUsers || Object.keys(state.allUsers).length === 0)) {
     listenAllUsers();

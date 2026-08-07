@@ -124,19 +124,31 @@ function productCardHTML(p, opts = {}) {
   const illegalBadge = p.category === 'ilegais'
     ? `<div class="stock-badge illegal">Irregular</div>`
     : '';
+  const eventTags = typeof getActiveEventTagsForProduct === 'function' ? getActiveEventTagsForProduct(p.id) : [];
+  const eventBadges = eventTags.map(t =>
+    `<div class="stock-badge event-badge" style="--event-color:${escapeHTML(t.color)}">${escapeHTML(t.label)}</div>`
+  ).join('');
+  const disc = typeof getEventDiscountForProduct === 'function'
+    ? getEventDiscountForProduct(p.id, Number(p.price) || 0)
+    : { discount: 0, final: Number(p.price) || 0, pct: 0 };
+  const priceHtml = disc.pct > 0
+    ? `<div class="product-price"><span class="price-old">${formatMoney(p.price)}</span> ${formatMoney(disc.final)}</div>
+       <div class="product-event-disc">−${disc.pct}% evento</div>`
+    : `<div class="product-price">${formatMoney(p.price)}</div>`;
 
   const cardClass = [
     'product-card',
     isOut ? 'out-of-stock' : '',
     opts.dark ? 'product-card-dark' : '',
-    p.secretRank ? 'product-card-secret' : ''
+    p.secretRank ? 'product-card-secret' : '',
+    eventTags.length ? 'product-card-event' : ''
   ].filter(Boolean).join(' ');
 
   return `
     <div class="${cardClass}" onclick="openProductModal('${p.id}')">
       ${isOut ? '<div class="stock-badge out">Esgotado</div>' : ''}
       ${!isOut && p.stock !== null && p.stock !== undefined && p.stock <= 5 ? `<div class="stock-badge low">Só ${p.stock}</div>` : ''}
-      ${secretBadge}${illegalBadge}
+      ${secretBadge}${illegalBadge}${eventBadges}
       ${imgHtml}
       <div class="product-body">
         <div class="product-category">${escapeHTML(CATEGORY_LABELS[p.category] || p.category || '')}</div>
@@ -145,7 +157,7 @@ function productCardHTML(p, opts = {}) {
         <div class="product-delivery">${deliveryText}</div>
         <div class="product-footer" onclick="event.stopPropagation()">
           <div>
-            <div class="product-price">${formatMoney(p.price)}</div>
+            ${priceHtml}
             <div class="product-stock ${isOut ? 'text-danger' : ''}">${stockText}</div>
           </div>
           <div class="product-actions">
@@ -192,13 +204,14 @@ function renderProducts() {
     grid.innerHTML = `
       <div class="empty-state empty-state-lg">
         <div class="empty-icon">📦</div>
-        <h3>Nenhum produto encontrado</h3>
-        <p>Tente ajustar a busca, categoria ou ordenação.</p>
+        <h3>Nada nesta vitrine</h3>
+        <p>O catálogo GS não encontrou correspondência. Ajuste busca, categoria ou volte mais tarde.</p>
       </div>
     `;
     return;
   }
 
+  if (typeof renderEventBanner === 'function') renderEventBanner();
   grid.innerHTML = products.map(p => productCardHTML(p)).join('');
 }
 
@@ -256,6 +269,13 @@ function openProductModal(productId) {
 
   const wished = !!(state.wishlist && state.wishlist[p.id]);
   const canOffer = canNegotiate() && !isOut && Number(p.price) >= 10000;
+  const eventTags = typeof getActiveEventTagsForProduct === 'function' ? getActiveEventTagsForProduct(productId) : [];
+  const disc = typeof getEventDiscountForProduct === 'function'
+    ? getEventDiscountForProduct(productId, Number(p.price) || 0)
+    : { discount: 0, final: Number(p.price) || 0, pct: 0 };
+  const priceBlock = disc.pct > 0
+    ? `<div class="modal-product-price"><span class="price-old">${formatMoney(p.price)}</span> ${formatMoney(disc.final)} <span class="event-disc-label">−${disc.pct}%</span></div>`
+    : `<div class="modal-product-price">${formatMoney(p.price)}</div>`;
 
   body.innerHTML = `
     <div class="modal-product-layout">
@@ -263,8 +283,9 @@ function openProductModal(productId) {
       <div class="modal-product-info">
         <div class="product-category">${escapeHTML(CATEGORY_LABELS[p.category] || p.category || '')}</div>
         <h2 class="modal-product-name">${escapeHTML(p.name)}</h2>
-        <div class="modal-product-price">${formatMoney(p.price)}</div>
-        <p class="modal-product-desc">${escapeHTML(p.description || 'Sem descrição.')}</p>
+        ${eventTags.map(t => `<span class="event-tag" style="--event-color:${escapeHTML(t.color)}">${escapeHTML(t.label)}</span>`).join(' ')}
+        ${priceBlock}
+        <p class="modal-product-desc">${escapeHTML(p.description || 'Sem descrição nos registros GS.')}</p>
         ${p.secretRank ? `<p class="modal-secret">🔒 Rank mínimo: ${RANK_THRESHOLDS.find(r => r.id === p.secretRank)?.label || p.secretRank}</p>` : ''}
         ${p.category === 'ilegais' ? `<p class="modal-illegal">⚠ Aquisição irregular — sem suporte oficial.</p>` : ''}
         <div class="modal-meta">
@@ -280,7 +301,7 @@ function openProductModal(productId) {
               <button class="btn btn-primary" onclick="buyProduct('${p.id}'); closeProductModal();">Comprar agora</button>
             `
           }
-          ${canOffer ? `<button class="btn btn-ghost" onclick="submitOffer('${p.id}')">Fazer oferta</button>` : ''}
+          ${canOffer ? `<button class="btn btn-ghost" onclick="submitOffer('${p.id}')">Negociar</button>` : ''}
         </div>
       </div>
     </div>
@@ -305,8 +326,8 @@ function renderBlackMarket() {
     grid.innerHTML = `
       <div class="empty-state empty-state-lg">
         <div class="empty-icon">🔒</div>
-        <h3>Acesso negado</h3>
-        <p>Este setor não existe nos registros oficiais.</p>
+        <h3>Setor inexistente</h3>
+        <p>Não há registros oficiais deste lugar. Se alguém te falou dele, esqueça.</p>
       </div>
     `;
     return;
@@ -321,8 +342,8 @@ function renderBlackMarket() {
     grid.innerHTML = `
       <div class="empty-state empty-state-lg">
         <div class="empty-icon">🌑</div>
-        <h3>Nada em estoque no subsolo</h3>
-        <p>Volte mais tarde. Ou não.</p>
+        <h3>Prateleiras vazias no subsolo</h3>
+        <p>O estoque irregular some rápido. Volte quando o courier sussurrar de novo.</p>
       </div>
     `;
     return;

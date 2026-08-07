@@ -17,7 +17,7 @@ function renderAdminProducts() {
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || (a.name || '').localeCompare(b.name || ''));
 
   if (products.length === 0) {
-    el.innerHTML = '<div class="empty-state">Nenhum produto cadastrado.</div>';
+    el.innerHTML = '<div class="empty-state">Catálogo GS vazio. Cadastre o primeiro item.</div>';
     return;
   }
 
@@ -170,7 +170,7 @@ function renderAdminOrders() {
 
   const orders = state.allOrders || [];
   if (orders.length === 0) {
-    el.innerHTML = '<div class="empty-state">Nenhum pedido no sistema.</div>';
+    el.innerHTML = '<div class="empty-state">Canal de entregas silencioso. Nenhum pedido no sistema.</div>';
     return;
   }
 
@@ -344,6 +344,7 @@ function switchAdminTab(tab, btn) {
   if (tab === 'orders') renderAdminOrders();
   if (tab === 'coupons') renderAdminCoupons();
   if (tab === 'offers') renderAdminOffers();
+  if (tab === 'events') renderAdminEvents();
   if (tab === 'log') renderAdminLog();
   if (tab === 'players') renderAdminPlayers();
   if (tab === 'access') { /* form only */ }
@@ -1069,31 +1070,37 @@ async function adminDeleteCoupon(code) {
 function renderAdminOffers() {
   const el = document.getElementById('admin-offers-list');
   if (!el) return;
-  const list = (state.offers || []).filter(o => o.status === 'pending' || o.status === 'counter');
   const all = state.offers || [];
   if (!all.length) {
-    el.innerHTML = '<div class="empty-state">Nenhuma oferta.</div>';
+    el.innerHTML = '<div class="empty-state">Nenhuma negociação no canal GS.</div>';
     return;
   }
   el.innerHTML = `<div class="admin-table-wrap"><table class="admin-table">
-    <thead><tr><th>Jogador</th><th>Produto</th><th>Lista</th><th>Oferta</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>Jogador</th><th>Produto</th><th>Lista</th><th>Oferta</th><th>Chat</th><th>Status</th><th></th></tr></thead>
     <tbody>
-      ${all.slice(0, 40).map(o => `
+      ${all.slice(0, 40).map(o => {
+        const msgs = o.messages || [];
+        const last = msgs[msgs.length - 1];
+        const open = o.status === 'pending' || o.status === 'counter' || o.status === 'open';
+        return `
         <tr>
           <td>${escapeHTML(o.userName || '')}</td>
           <td>${escapeHTML(o.productName || '')}</td>
           <td class="mono">${formatMoney(o.listPrice)}</td>
           <td class="mono">${formatMoney(o.amount)}${o.counterAmount ? ` → ${formatMoney(o.counterAmount)}` : ''}</td>
+          <td style="font-size:11px;max-width:160px">${msgs.length ? escapeHTML((last?.text || '').slice(0, 48)) : '—'}</td>
           <td>${escapeHTML(o.status)}</td>
           <td class="admin-actions-cell">
-            ${o.status === 'pending' ? `
+            ${open ? `
               <button class="btn btn-primary btn-sm" onclick="adminRespondOffer('${o.id}','accept')">Aceitar</button>
               <button class="btn btn-ghost btn-sm" onclick="adminRespondOffer('${o.id}','counter')">Contra</button>
+              <button class="btn btn-ghost btn-sm" onclick="adminRespondOffer('${o.id}','reply')">Msg</button>
               <button class="btn btn-ghost btn-sm text-danger" onclick="adminRespondOffer('${o.id}','reject')">Recusar</button>
-            ` : '—'}
+            ` : `<button class="btn btn-ghost btn-sm" onclick="openNegotiationModal('${o.productId}','${o.id}')">Ver</button>`}
           </td>
         </tr>
-      `).join('')}
+      `;
+      }).join('')}
     </tbody></table></div>`;
 }
 

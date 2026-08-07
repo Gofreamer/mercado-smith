@@ -134,10 +134,11 @@
             </select>
           </div>
         </div>
+        <div id="event-banner" class="event-banner hidden"></div>
         <div id="market-feed" class="market-feed"></div>
         <div id="category-chips" class="category-chips"></div>
         <div id="products-grid" class="products-grid">
-          <div class="empty-state">Carregando produtos...</div>
+          <div class="empty-state">Sincronizando catálogo GS...</div>
         </div>
       </section>
 
@@ -213,7 +214,8 @@
           <button class="admin-tab" onclick="switchAdminTab('players', this)">Jogadores</button>
           <button class="admin-tab" onclick="switchAdminTab('access', this)">Acessos</button>
           <button class="admin-tab" onclick="switchAdminTab('coupons', this)">Cupons</button>
-          <button class="admin-tab" onclick="switchAdminTab('offers', this)">Ofertas</button>
+          <button class="admin-tab" onclick="switchAdminTab('offers', this)">Negociações</button>
+          <button class="admin-tab" onclick="switchAdminTab('events', this)">Eventos</button>
           <button class="admin-tab" onclick="switchAdminTab('log', this)">Log</button>
         </div>
 
@@ -447,12 +449,79 @@
           </div>
         </div>
 
-        <!-- Tab: Ofertas -->
+        <!-- Tab: Ofertas / Negociações -->
         <div id="admin-tab-offers" class="admin-tab-panel hidden">
           <div class="admin-card admin-card-wide">
             <h3>Negociações / Ofertas</h3>
-            <p class="text-muted admin-hint">Jogadores Platina+ podem ofertar. Aceitar debita e entrega automaticamente.</p>
+            <p class="text-muted admin-hint">Platina+ negociam com chat curto (máx. 8 msgs). Aceitar debita e entrega automaticamente.</p>
             <div id="admin-offers-list"></div>
+          </div>
+        </div>
+
+        <!-- Tab: Eventos -->
+        <div id="admin-tab-events" class="admin-tab-panel hidden">
+          <div class="admin-layout">
+            <div class="admin-card">
+              <h3 id="event-form-title">Novo evento</h3>
+              <p class="text-muted admin-hint">Ex: “Semana Nina Riders”. IDs de produto separados por vírgula (copie do Firebase ou da lista de produtos).</p>
+              <form id="admin-event-form" onsubmit="adminSaveEvent(event)">
+                <input type="hidden" id="event-edit-id" value=""/>
+                <div class="form-group">
+                  <label>Nome</label>
+                  <input type="text" id="event-name" required placeholder="Semana Nina Riders"/>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Tag no catálogo</label>
+                    <input type="text" id="event-tag" placeholder="Nina Riders"/>
+                  </div>
+                  <div class="form-group">
+                    <label>Cor da tag</label>
+                    <input type="color" id="event-color" value="#e11d48"/>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Texto do banner</label>
+                  <input type="text" id="event-banner-text" placeholder="Esta semana: linha Nina Riders em destaque"/>
+                </div>
+                <div class="form-group">
+                  <label>Descrição</label>
+                  <textarea id="event-desc" rows="2" placeholder="Opcional"></textarea>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Desconto %</label>
+                    <input type="number" id="event-discount" min="0" max="90" step="1" value="0"/>
+                  </div>
+                  <div class="form-group">
+                    <label>Ativo</label>
+                    <select id="event-active">
+                      <option value="true">Sim</option>
+                      <option value="false">Não</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Início</label>
+                    <input type="datetime-local" id="event-starts"/>
+                  </div>
+                  <div class="form-group">
+                    <label>Fim</label>
+                    <input type="datetime-local" id="event-ends"/>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>IDs dos produtos</label>
+                  <textarea id="event-products" rows="2" placeholder="id1, id2, id3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Salvar evento</button>
+              </form>
+            </div>
+            <div class="admin-card admin-card-wide">
+              <h3>Eventos</h3>
+              <div id="admin-events-list"></div>
+            </div>
           </div>
         </div>
 
@@ -473,6 +542,14 @@
     <div class="modal-dialog">
       <button class="modal-close" onclick="closeProductModal()" aria-label="Fechar">✕</button>
       <div id="product-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- ==================== NEGOCIAÇÃO MODAL ==================== -->
+  <div id="nego-modal" class="modal" onclick="if(event.target===this)closeNegotiationModal()">
+    <div class="modal-dialog modal-dialog-nego">
+      <button class="modal-close" onclick="closeNegotiationModal()" aria-label="Fechar">✕</button>
+      <div id="nego-modal-body"></div>
     </div>
   </div>
 

@@ -107,18 +107,20 @@ function renderProfile() {
         <h3>Histórico recente</h3>
         ${recent.length === 0 ? `
           <div class="empty-state" style="padding: 24px 0">
-            <p>Nenhuma compra ainda.</p>
+            <p>Nenhuma operação no histórico. O mercado ainda não te conhece.</p>
             <button class="btn btn-primary btn-sm" onclick="showView('market')" style="margin-top:10px">Ir ao Mercado</button>
           </div>
         ` : recent.map(o => {
           const status = o.status || 'delivered';
           const qty = o.quantity || 1;
+          const msg = o.statusMessage || STATUS_MESSAGES[status] || '';
           return `
             <div class="profile-order-row">
               <div class="profile-order-info">
                 <h4>${escapeHTML(o.productName)}${qty > 1 ? ` ×${qty}` : ''}</h4>
                 <p>${formatDateTime(o.createdAt)}</p>
                 <span class="status-pill ${statusClass(status)}">${formatDeliveryLabel(o)}</span>
+                ${msg ? `<p class="status-msg">${escapeHTML(msg)}</p>` : ''}
               </div>
               <div class="profile-order-meta">
                 <div class="item-price success">${formatMoney(o.price)}</div>
@@ -133,12 +135,13 @@ function renderProfile() {
         ` : ''}
 
         ${myOffers.length ? `
-          <h3 style="margin-top:24px">Suas ofertas</h3>
+          <h3 style="margin-top:24px">Negociações</h3>
           ${myOffers.map(o => `
-            <div class="profile-order-row">
+            <div class="profile-order-row" style="cursor:pointer" onclick="openNegotiationModal('${o.productId}','${o.id}')">
               <div class="profile-order-info">
                 <h4>${escapeHTML(o.productName)}</h4>
-                <p>${formatMoney(o.amount)} · ${escapeHTML(o.status)}${o.counterAmount ? ` → contraproposta ${formatMoney(o.counterAmount)}` : ''}</p>
+                <p>${formatMoney(o.amount)} · ${escapeHTML(o.status)}${o.counterAmount ? ` → contra ${formatMoney(o.counterAmount)}` : ''}</p>
+                <p class="status-msg">${(o.messages && o.messages.length) ? o.messages.length + ' msg' : 'sem mensagens'}</p>
               </div>
             </div>
           `).join('')}

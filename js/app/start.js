@@ -10,6 +10,8 @@ auth.onAuthStateChanged(async (user) => {
     listenProducts();
     listenOrders(user.uid);
     listenFeed();
+    listenOffers();
+    listenEvents();
     showView('market');
   } else {
     state.user = null;

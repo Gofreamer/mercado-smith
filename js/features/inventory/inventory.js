@@ -1,5 +1,18 @@
 /* Global Smith — Inventory & Orders */
 
+function statusBannerHTML(status, msg, statusLabel) {
+  const text = msg || STATUS_MESSAGES[status] || '';
+  if (!text && !statusLabel) return '';
+  return `
+    <div class="status-banner ${statusClass(status)}">
+      <div class="status-banner-top">
+        <span class="status-pill ${statusClass(status)}">${escapeHTML(statusLabel || STATUS_LABELS[status] || status)}</span>
+      </div>
+      ${text ? `<p class="status-msg">${escapeHTML(text)}</p>` : ''}
+    </div>
+  `;
+}
+
 function renderInventory() {
   const list = document.getElementById('inventory-list');
   if (!list) return;
@@ -11,9 +24,9 @@ function renderInventory() {
     list.innerHTML = `
       <div class="empty-state empty-state-lg">
         <div class="empty-icon">🎒</div>
-        <h3>Inventário vazio</h3>
-        <p>Compre itens no mercado para vê-los aqui.</p>
-        <button class="btn btn-primary" onclick="showView('market')">Explorar Mercado</button>
+        <h3>Cofre vazio</h3>
+        <p>Nada aqui ainda. O mercado GS espera — qualidade, poder e exclusividade.</p>
+        <button class="btn btn-primary" onclick="showView('market')">Entrar no Mercado</button>
       </div>
     `;
     return;
@@ -36,8 +49,7 @@ function renderInventory() {
         <div class="item-info">
           <h4>${escapeHTML(item.name)}${item.illegal ? ' <span class="tag-illegal">Subsolo</span>' : ''}</h4>
           <p>${escapeHTML(CATEGORY_LABELS[item.category] || item.category || '')}</p>
-          <span class="status-pill ${statusClass(status)}">${statusLabel}</span>
-          ${msg ? `<p class="status-msg">${escapeHTML(msg)}</p>` : ''}
+          ${statusBannerHTML(status, msg, statusLabel)}
         </div>
         <div class="item-meta">
           <div class="item-price">${formatMoney(item.price)}</div>
@@ -56,9 +68,9 @@ function renderOrders() {
     list.innerHTML = `
       <div class="empty-state empty-state-lg">
         <div class="empty-icon">🧾</div>
-        <h3>Nenhum pedido ainda</h3>
-        <p>Seu histórico de compras aparecerá aqui.</p>
-        <button class="btn btn-primary" onclick="showView('market')">Ir às compras</button>
+        <h3>Nenhuma operação registrada</h3>
+        <p>Quando o courier sair com seu pacote, o rastro aparece aqui.</p>
+        <button class="btn btn-primary" onclick="showView('market')">Explorar o catálogo</button>
       </div>
     `;
     return;
@@ -82,8 +94,7 @@ function renderOrders() {
           <h4>${escapeHTML(order.productName)}${qty > 1 ? ` <span class="qty-badge">×${qty}</span>` : ''}</h4>
           <p>${formatDateTime(order.createdAt)}</p>
           ${order.category ? `<span class="order-cat">${escapeHTML(CATEGORY_LABELS[order.category] || order.category)}</span>` : ''}
-          <span class="status-pill ${statusClass(status)}">${statusLabel}</span>
-          ${msg ? `<p class="status-msg">${escapeHTML(msg)}</p>` : ''}
+          ${statusBannerHTML(status, msg, statusLabel)}
         </div>
         <div class="item-meta">
           <div class="item-price success">${formatMoney(order.price)}</div>

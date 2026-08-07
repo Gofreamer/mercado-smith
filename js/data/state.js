@@ -17,7 +17,12 @@ const state = {
   feed: [],
   offers: [],
   adminLog: [],
-  appliedCoupon: null
+  appliedCoupon: null,
+  events: {},
+  /** snapshot de estoque anterior para notificar restock da wishlist */
+  _prevStock: null,
+  /** ids de produto já notificados nesta sessão (evita spam) */
+  _restockNotified: {}
 };
 
 const ADMIN_UIDS = [];

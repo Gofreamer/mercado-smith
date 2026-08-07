@@ -122,9 +122,9 @@ function renderCart() {
     body.innerHTML = `
       <div class="cart-empty">
         <div class="cart-empty-icon">🛒</div>
-        <h3>Carrinho vazio</h3>
-        <p>Explore o mercado e adicione itens exclusivos.</p>
-        <button class="btn btn-primary" onclick="closeCart(); showView('market')">Ir ao Mercado</button>
+        <h3>Carrinho sem carga</h3>
+        <p>Nada reservado ainda. O catálogo GS tem o que a mesa precisa.</p>
+        <button class="btn btn-primary" onclick="closeCart(); showView('market')">Abrir o Mercado</button>
       </div>
     `;
     if (footer) footer.classList.add('hidden');

@@ -2215,3 +2215,229 @@ body.theme-blackmarket .brand {
   gap: 4px;
   flex-shrink: 0;
 }
+
+/* ========== STATUS BANNER (pedidos / inventário) ========== */
+.status-banner {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.03);
+}
+.status-banner.status-transit {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.28);
+}
+.status-banner.status-held {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+.status-banner.status-resent {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.25);
+}
+.status-banner.status-delivered {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.22);
+}
+.status-banner.status-refunded {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.22);
+}
+.status-banner.status-lost {
+  background: rgba(127, 29, 29, 0.2);
+  border-color: rgba(248, 113, 113, 0.25);
+}
+.status-banner-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.status-banner .status-pill {
+  margin-top: 0;
+}
+.status-banner .status-msg {
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  font-style: normal;
+  font-weight: 500;
+}
+
+/* ========== EVENTOS ========== */
+.event-banner {
+  margin-bottom: 14px;
+}
+.event-banner.hidden { display: none; }
+.event-banner-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--event-color, #e11d48) 45%, transparent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--event-color, #e11d48) 18%, transparent), transparent);
+}
+.event-banner-tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--event-color, #e11d48);
+  color: #fff;
+}
+.event-banner-text {
+  font-size: 13px;
+  color: var(--text-primary);
+  flex: 1;
+}
+.event-banner-ends {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.event-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin: 2px 4px 2px 0;
+  background: color-mix(in srgb, var(--event-color, #e11d48) 22%, transparent);
+  color: var(--event-color, #e11d48);
+  border: 1px solid color-mix(in srgb, var(--event-color, #e11d48) 40%, transparent);
+}
+.stock-badge.event-badge {
+  background: var(--event-color, #e11d48);
+  color: #fff;
+  top: 8px;
+  left: 8px;
+  right: auto;
+}
+.product-card-event {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--event-color, #e11d48) 25%, transparent);
+}
+.price-old {
+  text-decoration: line-through;
+  opacity: 0.55;
+  font-size: 0.85em;
+  margin-right: 6px;
+  font-weight: 500;
+}
+.product-event-disc,
+.event-disc-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--success);
+}
+
+/* ========== NEGOCIAÇÃO ========== */
+.modal-dialog-nego {
+  max-width: 440px;
+  width: 100%;
+}
+.nego-header {
+  margin-bottom: 12px;
+}
+.nego-header h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+.nego-product {
+  font-weight: 600;
+  margin: 0;
+}
+.nego-list-price {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 4px 0 8px;
+}
+.nego-thread {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+.nego-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 16px 8px;
+}
+.nego-bubble {
+  max-width: 88%;
+  padding: 8px 11px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+.nego-bubble.nego-player {
+  align-self: flex-end;
+  background: rgba(99, 102, 241, 0.25);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+.nego-bubble.nego-admin {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+}
+.nego-bubble-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+.nego-bubble-text {
+  line-height: 1.35;
+}
+.nego-bubble-amount {
+  margin-top: 4px;
+  font-weight: 700;
+  color: var(--success);
+  font-size: 13px;
+}
+.nego-compose textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 56px;
+  margin-bottom: 8px;
+  background: var(--bg-input, rgba(0,0,0,0.25));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+}
+.nego-compose-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.nego-compose-row input {
+  flex: 1;
+}
+.nego-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+.nego-counter-actions {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+.nego-counter-actions p {
+  margin: 0 0 8px;
+  font-size: 13px;
+}

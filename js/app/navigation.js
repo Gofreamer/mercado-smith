@@ -38,6 +38,7 @@ function showView(viewName) {
     renderAdminOrders();
     if (typeof renderAdminCoupons === 'function') renderAdminCoupons();
     if (typeof renderAdminOffers === 'function') renderAdminOffers();
+    if (typeof renderAdminEvents === 'function') renderAdminEvents();
     if (typeof renderAdminLog === 'function') renderAdminLog();
   }
 }
