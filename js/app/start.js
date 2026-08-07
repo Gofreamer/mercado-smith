@@ -9,15 +9,16 @@ auth.onAuthStateChanged(async (user) => {
     listenUserProfile(user.uid);
     listenProducts();
     listenOrders(user.uid);
-
-    // Mostra a view padrão
+    // allOrders será ligado quando isAdmin for detectado em updateAdminVisibility
     showView('market');
   } else {
     state.user = null;
     state.profile = null;
     state.cart = {};
+    state.allOrders = [];
     updateCartBadge();
     closeCart();
+    closeProductModal();
     showAuthScreen();
   }
 });

@@ -1,19 +1,20 @@
 /* Global Smith — Global State */
 
 const state = {
-  user: null,          // Firebase user
-  profile: null,       // { name, email, balance, isAdmin, inventory, ... }
-  products: {},        // { id: product }
-  orders: [],
-  cart: {},            // { productId: { qty, addedAt } }
+  user: null,
+  profile: null,
+  products: {},
+  orders: [],        // pedidos do usuário logado
+  allOrders: [],     // todos (admin)
+  cart: {},
   currentView: 'market',
-  cartOpen: false
+  cartOpen: false,
+  sortBy: 'name',    // name | price-asc | price-desc | newest
+  editingProductId: null
 };
 
-// Admin UIDs (adicione o seu UID aqui depois do primeiro login)
 const ADMIN_UIDS = [];
 
-// Persistência local do carrinho (por usuário)
 function loadCartFromStorage(uid) {
   try {
     const raw = localStorage.getItem('gs_cart_' + uid);

@@ -24,20 +24,16 @@ function updateCartBadge() {
 
 function openCart() {
   state.cartOpen = true;
-  const drawer = document.getElementById('cart-drawer');
-  const overlay = document.getElementById('cart-overlay');
-  if (drawer) drawer.classList.add('open');
-  if (overlay) overlay.classList.add('open');
+  document.getElementById('cart-drawer')?.classList.add('open');
+  document.getElementById('cart-overlay')?.classList.add('open');
   document.body.style.overflow = 'hidden';
   renderCart();
 }
 
 function closeCart() {
   state.cartOpen = false;
-  const drawer = document.getElementById('cart-drawer');
-  const overlay = document.getElementById('cart-overlay');
-  if (drawer) drawer.classList.remove('open');
-  if (overlay) overlay.classList.remove('open');
+  document.getElementById('cart-drawer')?.classList.remove('open');
+  document.getElementById('cart-overlay')?.classList.remove('open');
   document.body.style.overflow = '';
 }
 
@@ -52,15 +48,13 @@ function addToCart(productId, qty = 1) {
     showToast('Produto não encontrado.', 'error');
     return;
   }
-
-  // Estoque
   if (product.stock !== null && product.stock !== undefined && product.stock <= 0) {
     showToast('Produto esgotado.', 'error');
     return;
   }
 
   const current = state.cart[productId]?.qty || 0;
-  const newQty = current + qty;
+  let newQty = current + qty;
 
   if (product.stock !== null && product.stock !== undefined && newQty > product.stock) {
     showToast(`Só restam ${product.stock} unidades.`, 'error');
@@ -76,6 +70,7 @@ function addToCart(productId, qty = 1) {
   updateCartBadge();
   showToast(`${product.name} adicionado ao carrinho`);
   if (state.cartOpen) renderCart();
+  if (state.currentView === 'market') renderProducts();
 }
 
 function setCartQty(productId, qty) {
@@ -98,6 +93,7 @@ function setCartQty(productId, qty) {
   saveCartToStorage();
   updateCartBadge();
   renderCart();
+  if (state.currentView === 'market') renderProducts();
 }
 
 function removeFromCart(productId) {
@@ -106,6 +102,7 @@ function removeFromCart(productId) {
   updateCartBadge();
   renderCart();
   showToast('Item removido do carrinho');
+  if (state.currentView === 'market') renderProducts();
 }
 
 function clearCart() {
@@ -135,8 +132,6 @@ function renderCart() {
   }
 
   if (footer) footer.classList.remove('hidden');
-
-  // Ordena por data de adição
   entries.sort((a, b) => (a[1].addedAt || 0) - (b[1].addedAt || 0));
 
   body.innerHTML = entries.map(([pid, item]) => {
@@ -158,6 +153,9 @@ function renderCart() {
       : `<div class="cart-item-placeholder">${(p.name || '?')[0]}</div>`;
 
     const maxStock = (p.stock !== null && p.stock !== undefined) ? p.stock : 99;
+    const deliveryHint = p.deliveryDays > 0
+      ? `<div class="cart-delivery">Chega em ~${p.deliveryDays}d</div>`
+      : `<div class="cart-delivery instant">Entrega imediata</div>`;
 
     return `
       <div class="cart-item">
@@ -166,13 +164,14 @@ function renderCart() {
           <div class="cart-item-name">${escapeHTML(p.name)}</div>
           <div class="cart-item-cat">${escapeHTML(CATEGORY_LABELS[p.category] || p.category || '')}</div>
           <div class="cart-item-price">${formatMoney(p.price)} <span class="cart-line-total">· ${formatMoney(lineTotal)}</span></div>
+          ${deliveryHint}
         </div>
         <div class="cart-item-actions">
           <div class="qty-control">
-            <button class="qty-btn" onclick="setCartQty('${pid}', ${item.qty - 1})" aria-label="Diminuir">−</button>
+            <button class="qty-btn" onclick="setCartQty('${pid}', ${item.qty - 1})">−</button>
             <input type="number" class="qty-input" value="${item.qty}" min="1" max="${maxStock}"
                    onchange="setCartQty('${pid}', this.value)" />
-            <button class="qty-btn" onclick="setCartQty('${pid}', ${item.qty + 1})" aria-label="Aumentar">+</button>
+            <button class="qty-btn" onclick="setCartQty('${pid}', ${item.qty + 1})">+</button>
           </div>
           <button class="cart-remove" onclick="removeFromCart('${pid}')" title="Remover">✕</button>
         </div>
@@ -180,7 +179,6 @@ function renderCart() {
     `;
   }).join('');
 
-  // Footer totals
   const totalEl = document.getElementById('cart-total-value');
   const countEl = document.getElementById('cart-count-label');
   if (totalEl) totalEl.textContent = formatMoney(getCartTotal());
@@ -188,11 +186,6 @@ function renderCart() {
 }
 
 async function checkoutCart() {
-  if (!state.profile || !state.user) {
-    showToast('Faça login para comprar.', 'error');
-    return;
-  }
-
   const entries = Object.entries(state.cart);
   if (entries.length === 0) {
     showToast('Carrinho vazio.', 'error');
@@ -200,25 +193,19 @@ async function checkoutCart() {
   }
 
   const total = getCartTotal();
-  const balance = Number(state.profile.balance) || 0;
-
+  const balance = Number(state.profile?.balance) || 0;
   if (balance < total) {
     showToast(`Saldo insuficiente. Faltam ${formatMoney(total - balance)}.`, 'error');
     return;
   }
 
-  // Valida estoque novamente
-  for (const [pid, item] of entries) {
-    const p = state.products[pid];
-    if (!p) {
-      showToast('Um produto do carrinho não existe mais.', 'error');
-      return;
-    }
-    if (p.stock !== null && p.stock !== undefined && p.stock < item.qty) {
-      showToast(`${p.name}: só restam ${p.stock} unidades.`, 'error');
-      return;
-    }
-  }
+  const ok = confirm(
+    `Finalizar compra?\n\n` +
+    `${getCartCount()} item(ns)\n` +
+    `Total: ${formatMoney(total)}\n` +
+    `Saldo após: ${formatMoney(balance - total)}`
+  );
+  if (!ok) return;
 
   const btn = document.getElementById('btn-checkout');
   if (btn) {
@@ -226,67 +213,18 @@ async function checkoutCart() {
     btn.textContent = 'Processando...';
   }
 
-  const uid = state.user.uid;
-  const updates = {};
-  let runningBalance = balance;
+  const lines = entries.map(([productId, item]) => ({ productId, qty: item.qty }));
+  const success = await executePurchase(lines);
 
-  for (const [pid, item] of entries) {
-    const p = state.products[pid];
-    const price = Number(p.price) || 0;
-    const lineTotal = price * item.qty;
-
-    runningBalance -= lineTotal;
-
-    // Inventário (um registro por unidade para manter histórico individual)
-    for (let i = 0; i < item.qty; i++) {
-      const invKey = generateId();
-      updates[`users/${uid}/inventory/${invKey}`] = {
-        productId: pid,
-        name: p.name,
-        price,
-        category: p.category,
-        image: p.image || '',
-        boughtAt: Date.now()
-      };
-    }
-
-    // Estoque
-    if (p.stock !== null && p.stock !== undefined) {
-      updates[`products/${pid}/stock`] = p.stock - item.qty;
-    }
-
-    // Pedido (agrupado por linha)
-    const orderId = generateId();
-    updates[`orders/${orderId}`] = {
-      userId: uid,
-      userName: state.profile.name,
-      productId: pid,
-      productName: p.name,
-      price: lineTotal,
-      unitPrice: price,
-      quantity: item.qty,
-      image: p.image || '',
-      category: p.category || '',
-      createdAt: Date.now()
-    };
-  }
-
-  updates[`users/${uid}/balance`] = runningBalance;
-
-  try {
-    await db.ref().update(updates);
+  if (success) {
     clearCart();
     clearCartStorage();
     updateCartBadge();
     closeCart();
-    showToast(`Compra realizada! ${formatMoney(total)}`);
-  } catch (err) {
-    console.error(err);
-    showToast('Erro ao processar compra.', 'error');
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = 'Finalizar Compra';
-    }
+  }
+
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = 'Finalizar Compra';
   }
 }

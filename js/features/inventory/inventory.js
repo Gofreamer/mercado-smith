@@ -19,10 +19,13 @@ function renderInventory() {
     return;
   }
 
-  // Ordena do mais recente
   items.sort((a, b) => (b.boughtAt || 0) - (a.boughtAt || 0));
 
   list.innerHTML = items.map(item => {
+    const status = item.status || 'delivered';
+    const statusClass = status === 'delivered' ? 'status-delivered' : 'status-transit';
+    const statusLabel = formatDeliveryLabel(item);
+
     const img = item.image
       ? `<img class="inv-thumb" src="${escapeHTML(item.image)}" alt="" onerror="this.outerHTML='<div class=\\'inv-thumb placeholder\\'>${(item.name||'?')[0]}</div>'"/>`
       : `<div class="inv-thumb placeholder">${(item.name || '?')[0]}</div>`;
@@ -33,10 +36,11 @@ function renderInventory() {
         <div class="item-info">
           <h4>${escapeHTML(item.name)}</h4>
           <p>${escapeHTML(CATEGORY_LABELS[item.category] || item.category || '')}</p>
+          <span class="status-pill ${statusClass}">${statusLabel}</span>
         </div>
         <div class="item-meta">
           <div class="item-price">${formatMoney(item.price)}</div>
-          <div class="item-date">${item.boughtAt ? new Date(item.boughtAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}</div>
+          <div class="item-date">${item.boughtAt ? formatDate(item.boughtAt) : ''}</div>
         </div>
       </div>
     `;
@@ -62,6 +66,10 @@ function renderOrders() {
   list.innerHTML = state.orders.map(order => {
     const qty = order.quantity || 1;
     const unit = order.unitPrice != null ? order.unitPrice : order.price;
+    const status = order.status || 'delivered';
+    const statusClass = status === 'delivered' ? 'status-delivered' : 'status-transit';
+    const statusLabel = formatDeliveryLabel(order);
+
     const img = order.image
       ? `<img class="inv-thumb" src="${escapeHTML(order.image)}" alt="" onerror="this.outerHTML='<div class=\\'inv-thumb placeholder\\'>${(order.productName||'?')[0]}</div>'"/>`
       : `<div class="inv-thumb placeholder">${(order.productName || '?')[0]}</div>`;
@@ -71,13 +79,13 @@ function renderOrders() {
         ${img}
         <div class="item-info">
           <h4>${escapeHTML(order.productName)}${qty > 1 ? ` <span class="qty-badge">×${qty}</span>` : ''}</h4>
-          <p>${order.createdAt ? new Date(order.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</p>
+          <p>${formatDateTime(order.createdAt)}</p>
           ${order.category ? `<span class="order-cat">${escapeHTML(CATEGORY_LABELS[order.category] || order.category)}</span>` : ''}
+          <span class="status-pill ${statusClass}">${statusLabel}</span>
         </div>
         <div class="item-meta">
           <div class="item-price success">${formatMoney(order.price)}</div>
           ${qty > 1 ? `<div class="item-date">${formatMoney(unit)} un.</div>` : ''}
-          <div class="order-status">Concluído</div>
         </div>
       </div>
     `;

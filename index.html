@@ -71,11 +71,14 @@
     <!-- Header -->
     <header class="header">
       <div class="header-left">
+        <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleMobileNav()" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
         <div class="logo-mark small">GS</div>
         <span class="brand">Global Smith</span>
       </div>
 
-      <nav class="nav">
+      <nav class="nav" id="main-nav">
         <button class="nav-item active" data-view="market" onclick="showView('market')">Mercado</button>
         <button class="nav-item" data-view="inventory" onclick="showView('inventory')">Inventário</button>
         <button class="nav-item" data-view="orders" onclick="showView('orders')">Pedidos</button>
@@ -117,6 +120,12 @@
           <h2>Mercado</h2>
           <div class="view-actions">
             <input type="search" id="search-input" class="search-input" placeholder="Buscar produtos..." oninput="filterProducts()"/>
+            <select id="sort-select" class="select" onchange="setSort(this.value)">
+              <option value="name">Nome A–Z</option>
+              <option value="price-asc">Menor preço</option>
+              <option value="price-desc">Maior preço</option>
+              <option value="newest">Mais recentes</option>
+            </select>
             <select id="category-filter" class="select select-hidden" onchange="filterProducts()">
               <option value="">Todas as categorias</option>
             </select>
@@ -163,50 +172,85 @@
         <div class="view-header">
           <h2>Painel Administrativo</h2>
         </div>
-        <div class="admin-grid">
-          <div class="admin-card">
-            <h3>Adicionar Produto</h3>
-            <form id="admin-add-product" onsubmit="adminAddProduct(event)">
-              <div class="form-group">
-                <label>Nome</label>
-                <input type="text" id="admin-product-name" required/>
-              </div>
-              <div class="form-group">
-                <label>Descrição</label>
-                <textarea id="admin-product-desc" rows="3" required></textarea>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Preço ($)</label>
-                  <input type="number" id="admin-product-price" min="0" step="0.01" required/>
-                </div>
-                <div class="form-group">
-                  <label>Categoria</label>
-                  <select id="admin-product-category" required>
-                    <option value="equipamentos">Equipamentos</option>
-                    <option value="consumiveis">Consumíveis</option>
-                    <option value="servicos">Serviços</option>
-                    <option value="comida">Comida & Bebida</option>
-                    <option value="ilegais">Ilegais / Mercado Negro</option>
-                    <option value="exoticos">Exóticos / Raros</option>
-                    <option value="utilidades">Utilidades</option>
-                    <option value="informacoes">Informações & Favores</option>
-                  </select>
-                </div>
-              </div>
-              <div class="form-group">
-                <label>URL da Imagem (opcional)</label>
-                <input type="url" id="admin-product-image" placeholder="https://..."/>
-              </div>
-              <div class="form-group">
-                <label>Estoque (deixe vazio = ilimitado)</label>
-                <input type="number" id="admin-product-stock" min="0"/>
-              </div>
-              <button type="submit" class="btn btn-primary">Adicionar Produto</button>
-            </form>
-          </div>
 
-          <div class="admin-card">
+        <div class="admin-tabs">
+          <button class="admin-tab active" onclick="switchAdminTab('products', this)">Produtos</button>
+          <button class="admin-tab" onclick="switchAdminTab('orders', this)">Pedidos / Entregas</button>
+          <button class="admin-tab" onclick="switchAdminTab('balance', this)">Saldo</button>
+        </div>
+
+        <!-- Tab: Produtos -->
+        <div id="admin-tab-products" class="admin-tab-panel">
+          <div class="admin-split">
+            <div class="admin-card">
+              <h3 id="admin-product-form-title">Adicionar Produto</h3>
+              <form id="admin-product-form" onsubmit="adminSaveProduct(event)">
+                <div class="form-group">
+                  <label>Nome</label>
+                  <input type="text" id="admin-product-name" required/>
+                </div>
+                <div class="form-group">
+                  <label>Descrição</label>
+                  <textarea id="admin-product-desc" rows="3" required></textarea>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Preço ($)</label>
+                    <input type="number" id="admin-product-price" min="0" step="0.01" required/>
+                  </div>
+                  <div class="form-group">
+                    <label>Categoria</label>
+                    <select id="admin-product-category" required>
+                      <option value="equipamentos">Equipamentos</option>
+                      <option value="consumiveis">Consumíveis</option>
+                      <option value="servicos">Serviços</option>
+                      <option value="comida">Comida &amp; Bebida</option>
+                      <option value="ilegais">Ilegais / Mercado Negro</option>
+                      <option value="exoticos">Exóticos / Raros</option>
+                      <option value="utilidades">Utilidades</option>
+                      <option value="informacoes">Informações &amp; Favores</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>URL da Imagem (opcional)</label>
+                  <input type="url" id="admin-product-image" placeholder="https://..."/>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Estoque (vazio = ilimitado)</label>
+                    <input type="number" id="admin-product-stock" min="0"/>
+                  </div>
+                  <div class="form-group">
+                    <label>Dias para entrega (0 = imediata)</label>
+                    <input type="number" id="admin-product-delivery" min="0" value="0"/>
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-primary" id="admin-product-submit">Adicionar Produto</button>
+                  <button type="button" class="btn btn-ghost hidden" id="admin-product-cancel" onclick="adminResetProductForm()">Cancelar</button>
+                </div>
+              </form>
+            </div>
+            <div class="admin-card admin-card-wide">
+              <h3>Produtos cadastrados</h3>
+              <div id="admin-products-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Pedidos -->
+        <div id="admin-tab-orders" class="admin-tab-panel hidden">
+          <div class="admin-card admin-card-wide">
+            <h3>Pedidos &amp; Entregas</h3>
+            <p class="text-muted admin-hint">Marque como entregue ou altere a data de previsão. O inventário do jogador é atualizado junto.</p>
+            <div id="admin-orders-list"></div>
+          </div>
+        </div>
+
+        <!-- Tab: Saldo -->
+        <div id="admin-tab-balance" class="admin-tab-panel hidden">
+          <div class="admin-card" style="max-width:420px">
             <h3>Ajustar Saldo</h3>
             <form id="admin-adjust-balance" onsubmit="adminAdjustBalance(event)">
               <div class="form-group">
@@ -220,15 +264,17 @@
               <button type="submit" class="btn btn-primary">Atualizar Saldo</button>
             </form>
           </div>
-
-          <div class="admin-card">
-            <h3>Gerar Produto com IA</h3>
-            <p class="text-muted">Em breve — integração com Gemini.</p>
-            <button class="btn btn-secondary" disabled>Gerar Item (em breve)</button>
-          </div>
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- ==================== PRODUCT MODAL ==================== -->
+  <div id="product-modal" class="modal" onclick="if(event.target===this)closeProductModal()">
+    <div class="modal-dialog">
+      <button class="modal-close" onclick="closeProductModal()" aria-label="Fechar">✕</button>
+      <div id="product-modal-body"></div>
+    </div>
   </div>
 
   <!-- ==================== CARRINHO (DRAWER) ==================== -->

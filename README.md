@@ -1,62 +1,46 @@
 # Global Smith
 
-Marketplace premium corporativo para RPG.
-
-## Stack
-- HTML + CSS + JS vanilla (modular)
-- Firebase Authentication (Email/Password)
-- Firebase Realtime Database
+Marketplace premium in-world para RPG.
 
 ## Funcionalidades
-- Login / Registro
-- Mercado com busca, chips de categorias e badges de estoque
-- **Carrinho de compras** (drawer lateral, quantidade, persistência local)
-- Compra rápida (1 item) ou checkout do carrinho
-- Inventário do personagem
-- Histórico de pedidos
+
+- Autenticação (e-mail / senha)
+- Mercado com busca, chips de categorias e ordenação
+- Modal de detalhe do produto
+- Carrinho (drawer, quantidade, persistência local)
+- Compra rápida ou checkout com confirmação
+- **Sistema de entrega**: dias para chegar + status “Em trânsito” / “Entregue”
+- Inventário e histórico de pedidos com status
 - Perfil + saldo
-- Painel Admin (produtos + ajuste de saldo)
+- **Admin completo**
+  - CRUD de produtos (inclui dias de entrega)
+  - Gestão de pedidos (marcar entregue, editar data)
+  - Ajuste de saldo
+- Header responsivo (menu mobile)
+- Hero só na aba Mercado
 
-## Estrutura
+## Stack
 
-```
-mercado-smith/
-├── index.html
-├── css/styles.css
-├── js/
-│   ├── config/firebase-config.js
-│   ├── data/state.js
-│   ├── core/utils.js
-│   ├── services/
-│   │   ├── auth.js
-│   │   └── database.js
-│   ├── app/
-│   │   ├── auth-ui.js
-│   │   ├── navigation.js
-│   │   └── start.js
-│   └── features/
-│       ├── market/market.js
-│       ├── cart/cart.js
-│       ├── inventory/inventory.js
-│       ├── profile/profile.js
-│       └── admin/admin.js
-└── database.rules.json
+HTML + CSS + JS vanilla · Firebase Auth · Realtime Database
+
+## Como rodar
+
+```bash
+npx serve .
 ```
 
-## Como rodar localmente
+## Admin
 
-1. Configure o Firebase (já feito)
-2. Coloque as regras abertas no Realtime Database
-3. Abra o `index.html` com um servidor local (Live Server, ou `npx serve`)
+1. Crie conta → copie o UID no Perfil  
+2. Firebase → `users/{UID}/isAdmin = true`  
+3. Recarregue → menu Admin
 
-Ou suba no Cloudflare Pages.
+## Entrega
 
-## Primeiro uso
-
-1. Crie uma conta pelo site
-2. Copie o UID que aparece no Perfil
-3. No Firebase → Realtime Database → users → seu UID → mude `isAdmin` para `true`
-4. Recarregue a página → o menu **Admin** aparece
+- No produto: campo **Dias para entrega** (0 = imediata)  
+- Na compra: pedido e inventário ficam `in_transit` ou `delivered`  
+- Admin → aba **Pedidos / Entregas**: marcar entregue ou mudar a data
 
 ## Saldo inicial
-Todo personagem novo começa com **$ 1.000,00**
+
+$ 1.000,00

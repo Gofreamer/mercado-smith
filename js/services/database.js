@@ -14,6 +14,7 @@ function listenProducts() {
   db.ref('products').on('value', (snap) => {
     state.products = snap.val() || {};
     if (state.currentView === 'market') renderProducts();
+    if (state.currentView === 'admin') renderAdminProducts();
     if (state.cartOpen) renderCart();
   });
 }
@@ -28,14 +29,41 @@ function listenOrders(uid) {
   });
 }
 
-/** Compra rápida (1 unidade) */
+function listenAllOrders() {
+  // Só faz sentido para admin; escuta todos
+  db.ref('orders').on('value', (snap) => {
+    const data = snap.val() || {};
+    state.allOrders = Object.entries(data)
+      .map(([id, order]) => ({ id, ...order }))
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    if (state.currentView === 'admin') renderAdminOrders();
+  });
+}
+
+function computeDelivery(product) {
+  const days = Number(product.deliveryDays);
+  if (!days || days <= 0) {
+    return {
+      status: 'delivered',
+      estimatedDelivery: Date.now(),
+      deliveredAt: Date.now()
+    };
+  }
+  const eta = Date.now() + days * 24 * 60 * 60 * 1000;
+  return {
+    status: 'in_transit',
+    estimatedDelivery: eta,
+    deliveredAt: null
+  };
+}
+
+/** Compra rápida (1 unidade) com confirmação */
 async function buyProduct(productId) {
   const product = state.products[productId];
   if (!product) {
     showToast('Produto não encontrado.', 'error');
     return;
   }
-
   if (!state.profile) {
     showToast('Perfil não carregado.', 'error');
     return;
@@ -48,51 +76,113 @@ async function buyProduct(productId) {
     showToast('Saldo insuficiente.', 'error');
     return;
   }
-
   if (product.stock !== null && product.stock !== undefined && product.stock <= 0) {
     showToast('Produto esgotado.', 'error');
     return;
   }
 
-  const uid = state.user.uid;
-  const orderId = generateId();
-  const updates = {};
+  const deliveryInfo = product.deliveryDays > 0
+    ? `Chega em ~${product.deliveryDays} dia(s).`
+    : 'Entrega imediata.';
 
-  updates[`users/${uid}/balance`] = balance - price;
+  const ok = confirm(
+    `Confirmar compra?\n\n` +
+    `${product.name}\n` +
+    `Preço: ${formatMoney(price)}\n` +
+    `Saldo após: ${formatMoney(balance - price)}\n` +
+    `${deliveryInfo}`
+  );
+  if (!ok) return;
 
-  const invKey = generateId();
-  updates[`users/${uid}/inventory/${invKey}`] = {
-    productId,
-    name: product.name,
-    price,
-    category: product.category,
-    image: product.image || '',
-    boughtAt: Date.now()
-  };
+  await executePurchase([{ productId, qty: 1 }]);
+}
 
-  if (product.stock !== null && product.stock !== undefined) {
-    updates[`products/${productId}/stock`] = product.stock - 1;
+async function executePurchase(lines) {
+  // lines: [{ productId, qty }]
+  if (!state.profile || !state.user) {
+    showToast('Faça login para comprar.', 'error');
+    return false;
   }
 
-  updates[`orders/${orderId}`] = {
-    userId: uid,
-    userName: state.profile.name,
-    productId,
-    productName: product.name,
-    price,
-    unitPrice: price,
-    quantity: 1,
-    image: product.image || '',
-    category: product.category || '',
-    createdAt: Date.now()
-  };
+  let total = 0;
+  for (const line of lines) {
+    const p = state.products[line.productId];
+    if (!p) {
+      showToast('Produto inválido no carrinho.', 'error');
+      return false;
+    }
+    if (p.stock !== null && p.stock !== undefined && p.stock < line.qty) {
+      showToast(`${p.name}: só restam ${p.stock} unidades.`, 'error');
+      return false;
+    }
+    total += (Number(p.price) || 0) * line.qty;
+  }
+
+  const balance = Number(state.profile.balance) || 0;
+  if (balance < total) {
+    showToast(`Saldo insuficiente. Faltam ${formatMoney(total - balance)}.`, 'error');
+    return false;
+  }
+
+  const uid = state.user.uid;
+  const updates = {};
+  let runningBalance = balance;
+
+  for (const line of lines) {
+    const p = state.products[line.productId];
+    const price = Number(p.price) || 0;
+    const lineTotal = price * line.qty;
+    runningBalance -= lineTotal;
+
+    const delivery = computeDelivery(p);
+
+    for (let i = 0; i < line.qty; i++) {
+      const invKey = generateId();
+      updates[`users/${uid}/inventory/${invKey}`] = {
+        productId: line.productId,
+        name: p.name,
+        price,
+        category: p.category,
+        image: p.image || '',
+        boughtAt: Date.now(),
+        status: delivery.status,
+        estimatedDelivery: delivery.estimatedDelivery,
+        deliveredAt: delivery.deliveredAt
+      };
+    }
+
+    if (p.stock !== null && p.stock !== undefined) {
+      updates[`products/${line.productId}/stock`] = p.stock - line.qty;
+    }
+
+    const orderId = generateId();
+    updates[`orders/${orderId}`] = {
+      userId: uid,
+      userName: state.profile.name,
+      productId: line.productId,
+      productName: p.name,
+      price: lineTotal,
+      unitPrice: price,
+      quantity: line.qty,
+      image: p.image || '',
+      category: p.category || '',
+      status: delivery.status,
+      estimatedDelivery: delivery.estimatedDelivery,
+      deliveredAt: delivery.deliveredAt,
+      createdAt: Date.now()
+    };
+  }
+
+  updates[`users/${uid}/balance`] = runningBalance;
 
   try {
     await db.ref().update(updates);
-    showToast(`Comprado: ${product.name}`);
+    showToast(`Compra realizada! ${formatMoney(total)}`);
+    return true;
   } catch (err) {
     console.error(err);
     showToast('Erro ao processar compra.', 'error');
+    return false;
   }
 }
 
@@ -108,4 +198,8 @@ function updateAdminVisibility() {
   document.querySelectorAll('.admin-only').forEach(el => {
     el.classList.toggle('hidden', !isAdmin);
   });
+  // Se virou admin, começa a escutar todos os pedidos
+  if (isAdmin && state.allOrders.length === 0) {
+    listenAllOrders();
+  }
 }
