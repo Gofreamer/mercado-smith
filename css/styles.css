@@ -174,6 +174,14 @@ button, input, select, textarea {
   transition: border-color 0.15s;
 }
 
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 .form-group input:focus,
 .form-group textarea:focus,
 .form-group select:focus,
@@ -349,6 +357,9 @@ button, input, select, textarea {
   max-width: 1280px;
   width: 100%;
   margin: 0 auto;
+  min-width: 0;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .view-header {
@@ -517,8 +528,10 @@ button, input, select, textarea {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 28px;
-  max-width: 480px;
+  padding: 20px 24px;
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
 }
 
 .profile-row {
@@ -1513,16 +1526,31 @@ button, input, select, textarea {
 }
 
 .admin-split {
-  display: grid;
-  grid-template-columns: minmax(280px, 380px) 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 20px;
-  align-items: start;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
-@media (max-width: 900px) {
-  .admin-split {
-    grid-template-columns: 1fr;
-  }
+.admin-split > .admin-card {
+  width: 100%;
+  max-width: 560px; /* form não estica demais */
+  min-width: 0;
+  overflow: hidden;
+}
+
+.admin-split > .admin-card-wide {
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.admin-card {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .admin-card-wide {
@@ -1684,4 +1712,116 @@ button, input, select, textarea {
 
 .product-footer {
   cursor: default;
+}
+
+
+/* ==================== PROFILE HISTORY ==================== */
+
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .profile-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.profile-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 0;
+  overflow: hidden;
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.profile-stat {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.profile-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.profile-stat-value.success { color: var(--success); }
+.profile-stat-value.warning { color: var(--warning); }
+
+.profile-stat-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.profile-history-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.profile-history-card h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.profile-order-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-order-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.profile-order-row:first-of-type {
+  padding-top: 0;
+}
+
+.profile-order-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-order-info h4 {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-order-info p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.profile-order-meta {
+  text-align: right;
+  flex-shrink: 0;
 }

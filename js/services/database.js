@@ -26,6 +26,7 @@ function listenOrders(uid) {
       .map(([id, order]) => ({ id, ...order }))
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     if (state.currentView === 'orders') renderOrders();
+    if (state.currentView === 'profile') renderProfile();
   });
 }
 
