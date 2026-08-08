@@ -3154,3 +3154,19 @@ body.theme-blackmarket .brand {
   white-space: nowrap;
   margin-bottom: 4px;
 }
+
+
+/* Admin products multi-select */
+.admin-products-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.admin-table input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent, #6ee7b7);
+}

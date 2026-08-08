@@ -22,10 +22,17 @@ function renderAdminProducts() {
   }
 
   el.innerHTML = `
+    <div class="admin-products-toolbar">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="adminToggleAllProductChecks(true)">Selecionar todos</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="adminToggleAllProductChecks(false)">Limpar seleção</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="copySelectedProductIds()">Copiar IDs selecionados</button>
+      <span class="text-muted admin-hint" id="admin-products-selected-hint" style="margin-left:8px;font-size:12px"></span>
+    </div>
     <div class="admin-table-wrap">
       <table class="admin-table">
         <thead>
           <tr>
+            <th style="width:36px"><input type="checkbox" id="admin-products-check-all" onchange="adminToggleAllProductChecks(this.checked)" title="Selecionar todos"/></th>
             <th>Produto</th>
             <th>ID</th>
             <th>Preço</th>
@@ -42,6 +49,9 @@ function renderAdminProducts() {
             const safeId = String(p.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
             return `
               <tr>
+                <td>
+                  <input type="checkbox" class="admin-product-check" value="${escapeHTML(p.id)}" onchange="adminUpdateSelectedHint()"/>
+                </td>
                 <td>
                   <div class="admin-prod-name">${escapeHTML(p.name)}</div>
                   <div class="admin-prod-desc">${escapeHTML((p.description || '').slice(0, 60))}</div>
@@ -65,6 +75,30 @@ function renderAdminProducts() {
       </table>
     </div>
   `;
+  adminUpdateSelectedHint();
+}
+
+function adminGetSelectedProductIds() {
+  return Array.from(document.querySelectorAll('.admin-product-check:checked')).map(el => el.value);
+}
+
+function adminToggleAllProductChecks(checked) {
+  document.querySelectorAll('.admin-product-check').forEach(el => { el.checked = !!checked; });
+  const master = document.getElementById('admin-products-check-all');
+  if (master) master.checked = !!checked;
+  adminUpdateSelectedHint();
+}
+
+function adminUpdateSelectedHint() {
+  const n = adminGetSelectedProductIds().length;
+  const hint = document.getElementById('admin-products-selected-hint');
+  if (hint) hint.textContent = n ? `${n} selecionado(s)` : '';
+  const master = document.getElementById('admin-products-check-all');
+  if (master) {
+    const total = document.querySelectorAll('.admin-product-check').length;
+    master.checked = total > 0 && n === total;
+    master.indeterminate = n > 0 && n < total;
+  }
 }
 
 async function copyProductId(id) {
@@ -73,7 +107,6 @@ async function copyProductId(id) {
     await navigator.clipboard.writeText(id);
     showToast('ID copiado: ' + id);
   } catch {
-    // fallback
     const ta = document.createElement('textarea');
     ta.value = id;
     document.body.appendChild(ta);
@@ -81,6 +114,33 @@ async function copyProductId(id) {
     document.execCommand('copy');
     ta.remove();
     showToast('ID copiado: ' + id);
+  }
+}
+
+async function copySelectedProductIds() {
+  const ids = adminGetSelectedProductIds();
+  if (!ids.length) {
+    showToast('Selecione pelo menos um produto.', 'error');
+    return;
+  }
+  const text = ids.join(', ');
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(`${ids.length} ID(s) copiado(s) — cole em Eventos → IDs dos produtos`);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    showToast(`${ids.length} ID(s) copiado(s)`);
+  }
+  // também preenche o campo do evento se estiver na tela
+  const field = document.getElementById('event-products');
+  if (field) {
+    const current = field.value.trim();
+    field.value = current ? current + ', ' + text : text;
   }
 }
 
@@ -178,7 +238,13 @@ async function adminSaveProduct(e) {
 async function adminDeleteProduct(id) {
   const p = state.products[id];
   if (!p) return;
-  if (!confirm(`Apagar "${p.name}"?\nEssa ação não pode ser desfeita.`)) return;
+  const ok = await gsConfirm({
+    title: 'Apagar produto',
+    body: `Remover <strong>${escapeHTML(p.name)}</strong> do catálogo GS? Essa ação não pode ser desfeita.`,
+    confirmLabel: 'Apagar',
+    danger: true
+  });
+  if (!ok) return;
 
   try {
     await db.ref('products/' + id).remove();
@@ -247,7 +313,13 @@ function renderAdminOrders() {
 async function adminMarkDelivered(orderId) {
   const order = state.allOrders.find(o => o.id === orderId);
   if (!order) return;
-  if (!confirm(`Marcar "${order.productName}" como entregue para ${order.userName}?`)) return;
+  const ok = await gsConfirm({
+    title: 'Marcar entregue',
+    body: `Marcar <strong>${escapeHTML(order.productName)}</strong> como entregue para ${escapeHTML(order.userName || 'jogador')}?`,
+    confirmLabel: 'Entregar',
+    danger: false
+  });
+  if (!ok) return;
 
   const now = Date.now();
   const updates = {};
@@ -962,7 +1034,12 @@ if (typeof window.adminAddAiBatch !== 'function') {
   window.adminAddAiBatch = async function () {
     const list = window.__gsAiBatch || [];
     if (!list.length) return;
-    if (!confirm('Adicionar ' + list.length + ' produto(s) ao mercado agora?')) return;
+    const ok = await gsConfirm({
+      title: 'Publicar lote',
+      body: `Adicionar <strong>${list.length}</strong> produto(s) ao mercado agora?`,
+      confirmLabel: 'Publicar'
+    });
+    if (!ok) return;
     try {
       const updates = {};
       list.forEach((p) => {
@@ -1116,7 +1193,13 @@ async function adminCreateCoupon(e) {
 }
 
 async function adminDeleteCoupon(code) {
-  if (!confirm('Apagar cupom ' + code + '?')) return;
+  const ok = await gsConfirm({
+    title: 'Apagar cupom',
+    body: `Remover o cupom <strong>${escapeHTML(code)}</strong>?`,
+    confirmLabel: 'Apagar',
+    danger: true
+  });
+  if (!ok) return;
   await db.ref('coupons/' + code).remove();
   showToast('Cupom removido.');
 }
@@ -1214,6 +1297,28 @@ async function adminPostFeed(e) {
   await pushFeed(text, 'admin');
   showToast('Feed publicado.');
   e.target.reset();
+}
+
+async function adminClearFeed() {
+  const count = (state.feed || []).length;
+  if (!count) {
+    showToast('Feed já está vazio.', 'error');
+    return;
+  }
+  const ok = await gsConfirm({
+    title: 'Limpar canal GS',
+    body: `Apagar as <strong>${count}</strong> mensagens do feed do mercado?<br><span class="text-muted">Ação irreversível. Posts manuais e de eventos somem.</span>`,
+    confirmLabel: 'Limpar feed',
+    danger: true
+  });
+  if (!ok) return;
+  try {
+    await db.ref('marketFeed').remove();
+    showToast('Canal GS limpo.');
+  } catch (err) {
+    console.error(err);
+    showToast('Erro ao limpar feed.', 'error');
+  }
 }
 
 /* ---------- JOGADORES: inventário + rank ---------- */
@@ -1340,7 +1445,13 @@ async function adminViewPlayerInventory(uid) {
 
 async function adminRemovePlayerInventoryItem(uid, invKey, itemName) {
   const label = itemName || 'este item';
-  if (!confirm('Remover "' + label + '" do inventário deste jogador?\nEssa ação não devolve saldo automaticamente.')) return;
+  const ok = await gsConfirm({
+    title: 'Remover item',
+    body: `Remover <strong>${escapeHTML(label)}</strong> do inventário deste jogador?<br><span class="text-muted">Não devolve saldo automaticamente.</span>`,
+    confirmLabel: 'Remover',
+    danger: true
+  });
+  if (!ok) return;
 
   try {
     await db.ref('users/' + uid + '/inventory/' + invKey).remove();
@@ -1363,7 +1474,13 @@ async function adminRemovePlayerInventoryItem(uid, invKey, itemName) {
 
 async function adminClearPlayerInventory(uid) {
   if (!uid) return;
-  if (!confirm('Limpar TODO o inventário deste jogador?\nNão devolve saldo. Irreversível.')) return;
+  const ok = await gsConfirm({
+    title: 'Limpar inventário',
+    body: 'Limpar <strong>TODO</strong> o inventário deste jogador?<br><span class="text-muted">Não devolve saldo. Irreversível.</span>',
+    confirmLabel: 'Limpar tudo',
+    danger: true
+  });
+  if (!ok) return;
   try {
     await db.ref('users/' + uid + '/inventory').remove();
     pushAdminLog({ type: 'inventory_clear', userId: uid });
@@ -1378,7 +1495,13 @@ async function adminClearPlayerInventory(uid) {
 
 async function adminClearPlayerLedger(uid) {
   if (!uid) return;
-  if (!confirm('Limpar TODO o extrato bancário deste jogador?\nSaldo e inventário não mudam. Reduz carga no Firebase.')) return;
+  const ok = await gsConfirm({
+    title: 'Limpar extrato',
+    body: 'Limpar <strong>TODO</strong> o extrato bancário deste jogador?<br><span class="text-muted">Saldo e inventário não mudam. Reduz carga no Firebase.</span>',
+    confirmLabel: 'Limpar extrato',
+    danger: true
+  });
+  if (!ok) return;
   try {
     await db.ref('users/' + uid + '/ledger').remove();
     pushAdminLog({ type: 'ledger_clear', userId: uid });

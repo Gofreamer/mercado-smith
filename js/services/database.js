@@ -415,12 +415,7 @@ async function executePurchase(lines) {
   try {
     await db.ref().update(updates);
 
-    // feed + log
-    const names = lines.map(l => state.products[l.productId]?.name).filter(Boolean);
-    if (names.length) {
-      const label = names.length === 1 ? names[0] : `${names.length} itens`;
-      pushFeed(`${label} — movimento no mercado.`, 'sale');
-    }
+    // log (sem post automático no feed — evita spam de compras)
     pushAdminLog({
       type: 'purchase',
       userId: uid,

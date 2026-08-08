@@ -120,7 +120,13 @@ async function markInventoryUsed(invKey, used) {
 
 async function removeInventoryItem(invKey) {
   if (!state.user) return;
-  if (!confirm('Remover este item do inventário? Não devolve saldo.')) return;
+  const ok = await gsConfirm({
+    title: 'Remover item',
+    body: 'Remover este item do inventário?<br><span class="text-muted">Não devolve saldo.</span>',
+    confirmLabel: 'Remover',
+    danger: true
+  });
+  if (!ok) return;
   try {
     await db.ref(`users/${state.user.uid}/inventory/${invKey}`).remove();
     showToast('Item removido.');
@@ -196,7 +202,13 @@ function renderOrders() {
 
 async function deleteMyOrder(orderId) {
   if (!state.user || !orderId) return;
-  if (!confirm('Apagar este pedido do histórico?\nNão remove o item do inventário nem devolve saldo.')) return;
+  const ok = await gsConfirm({
+    title: 'Apagar pedido',
+    body: 'Apagar este pedido do histórico?<br><span class="text-muted">Não remove o item do inventário nem devolve saldo.</span>',
+    confirmLabel: 'Apagar',
+    danger: true
+  });
+  if (!ok) return;
   try {
     const order = (state.orders || []).find(o => o.id === orderId);
     if (order && order.userId && order.userId !== state.user.uid) {
@@ -215,7 +227,13 @@ async function clearMyOrderHistory() {
   if (!state.user) return;
   const n = (state.orders || []).length;
   if (!n) return;
-  if (!confirm(`Apagar todos os ${n} pedidos do seu histórico?\nInventário e saldo não mudam.`)) return;
+  const ok = await gsConfirm({
+    title: 'Limpar histórico',
+    body: `Apagar todos os <strong>${n}</strong> pedidos do seu histórico?<br><span class="text-muted">Inventário e saldo não mudam.</span>`,
+    confirmLabel: 'Limpar tudo',
+    danger: true
+  });
+  if (!ok) return;
   try {
     const updates = {};
     (state.orders || []).forEach(o => {

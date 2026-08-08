@@ -324,7 +324,13 @@ async function cardRpSpend(e) {
   }
 
   const catLabel = RP_SPEND_CATEGORIES[category] || category;
-  if (!confirm(`Debitar ${formatMoney(amount)} no cartão?\n\n${catLabel}\n${desc}`)) return;
+  const okSpend = await gsConfirm({
+    title: 'Débito no cartão',
+    body: `Debitar <strong>${formatMoney(amount)}</strong>?<br>${escapeHTML(catLabel)} — ${escapeHTML(desc)}`,
+    confirmLabel: 'Debitar',
+    danger: true
+  });
+  if (!okSpend) return;
 
   const newBal = bal - amount;
   const uid = state.user.uid;
@@ -402,7 +408,14 @@ async function requestLoan(e) {
 }
 
 async function cancelLoanRequest(loanId) {
-  if (!state.user || !confirm('Cancelar pedido de empréstimo?')) return;
+  if (!state.user) return;
+  const okCancel = await gsConfirm({
+    title: 'Cancelar empréstimo',
+    body: 'Cancelar este pedido de empréstimo?',
+    confirmLabel: 'Cancelar pedido',
+    danger: true
+  });
+  if (!okCancel) return;
   try {
     await db.ref(`users/${state.user.uid}/loans/${loanId}`).update({ status: 'cancelled', resolvedAt: Date.now() });
     await db.ref(`loanRequests/${loanId}`).update({ status: 'cancelled' });
@@ -504,7 +517,12 @@ async function adminResolveLoan(loanId, action) {
     return;
   }
   if (action === 'approve') {
-    if (!confirm(`Liberar ${formatMoney(req.amount)} para ${req.userName}?`)) return;
+    const okLoan = await gsConfirm({
+      title: 'Liberar empréstimo',
+      body: `Liberar <strong>${formatMoney(req.amount)}</strong> para ${escapeHTML(req.userName || 'jogador')}?`,
+      confirmLabel: 'Liberar'
+    });
+    if (!okLoan) return;
     try {
       const userSnap = await db.ref('users/' + req.userId).once('value');
       const user = userSnap.val() || {};
@@ -675,7 +693,13 @@ async function adminSetCardStatus(status) {
     return;
   }
   const labels = { active: 'reativar', suspended: 'suspender', cancelled: 'cancelar' };
-  if (!confirm(`Confirma ${labels[status] || status} este cartão?`)) return;
+  const okCard = await gsConfirm({
+    title: 'Status do cartão',
+    body: `Confirma <strong>${escapeHTML(labels[status] || status)}</strong> este cartão?`,
+    confirmLabel: 'Confirmar',
+    danger: status === 'cancelled' || status === 'suspended'
+  });
+  if (!okCard) return;
   try {
     await db.ref(`users/${uid}/card`).update({
       status,

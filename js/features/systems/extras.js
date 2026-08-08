@@ -334,7 +334,12 @@ async function sendNegotiationMessage(productId, offerId) {
 async function acceptCounterOffer(offerId) {
   const offer = (state.offers || []).find(o => o.id === offerId);
   if (!offer || !offer.counterAmount) return;
-  if (!confirm(`Aceitar contraproposta de ${formatMoney(offer.counterAmount)}?\nO núcleo GS ainda confirma a operação.`)) return;
+  const okCounter = await gsConfirm({
+    title: 'Contraproposta',
+    body: `Aceitar contraproposta de <strong>${formatMoney(offer.counterAmount)}</strong>?<br><span class="text-muted">O núcleo GS ainda confirma a operação.</span>`,
+    confirmLabel: 'Aceitar'
+  });
+  if (!okCounter) return;
 
   try {
     const messages = offer.messages || [];
@@ -388,7 +393,12 @@ async function adminRespondOffer(offerId, action) {
       return;
     }
     const finalAmount = offer.amount;
-    if (!confirm(`Aceitar oferta de ${formatMoney(finalAmount)} de ${offer.userName} por "${offer.productName}"?`)) return;
+    const okOffer = await gsConfirm({
+      title: 'Aceitar oferta',
+      body: `Aceitar oferta de <strong>${formatMoney(finalAmount)}</strong> de ${escapeHTML(offer.userName || '')} por &quot;${escapeHTML(offer.productName || '')}&quot;?`,
+      confirmLabel: 'Aceitar'
+    });
+    if (!okOffer) return;
 
     try {
       const userSnap = await db.ref('users/' + offer.userId).once('value');
@@ -824,7 +834,13 @@ async function adminActivateEventNow(id) {
 }
 
 async function adminDeleteEvent(id) {
-  if (!confirm('Apagar este evento?')) return;
+  const okEv = await gsConfirm({
+    title: 'Apagar evento',
+    body: 'Apagar este evento? Tags e descontos vinculados somem.',
+    confirmLabel: 'Apagar',
+    danger: true
+  });
+  if (!okEv) return;
   try {
     await db.ref('events/' + id).remove();
     showToast('Evento removido.');
@@ -981,7 +997,13 @@ function adminEditVendor(id) {
 }
 
 async function adminDeleteVendor(id) {
-  if (!confirm('Apagar esta vitrine? Produtos vinculados ficam sem vendedor.')) return;
+  const okVend = await gsConfirm({
+    title: 'Apagar vitrine',
+    body: 'Apagar esta vitrine?<br><span class="text-muted">Produtos vinculados ficam sem vendedor.</span>',
+    confirmLabel: 'Apagar',
+    danger: true
+  });
+  if (!okVend) return;
   try {
     await db.ref('vendors/' + id).remove();
     showToast('Vitrine removida.');

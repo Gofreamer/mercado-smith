@@ -500,8 +500,12 @@
                   <label>Mensagem</label>
                   <input type="text" id="admin-feed-text" required maxlength="140" placeholder="Ex: Novo lote de passes VIP chegou."/>
                 </div>
-                <button type="submit" class="btn btn-primary">Publicar</button>
+                <div class="form-row" style="gap:8px;align-items:center">
+                  <button type="submit" class="btn btn-primary">Publicar</button>
+                  <button type="button" class="btn btn-ghost text-danger" onclick="adminClearFeed()">Limpar feed</button>
+                </div>
               </form>
+              <p class="text-muted admin-hint" style="margin-top:8px">Compras não postam mais no canal. Só posts manuais, eventos e reposição.</p>
             </div>
           </div>
         </div>

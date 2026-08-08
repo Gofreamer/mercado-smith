@@ -276,7 +276,12 @@ window.adminAddAiBatchItem = async function (index) {
 window.adminAddAiBatch = async function () {
   const list = window.__gsAiBatch || [];
   if (!list.length) return;
-  if (!confirm(`Adicionar ${list.length} produto(s) ao mercado agora?`)) return;
+  const okBatch = await gsConfirm({
+    title: 'Publicar lote',
+    body: `Adicionar <strong>${list.length}</strong> produto(s) ao mercado agora?`,
+    confirmLabel: 'Publicar'
+  });
+  if (!okBatch) return;
   try {
     const updates = {};
     list.forEach((p) => {
