@@ -35,6 +35,7 @@ function showView(viewName) {
   if (viewName === 'wishlist') renderWishlist();
   if (viewName === 'bank') renderBank();
   if (viewName === 'admin') {
+    if (typeof renderAdminMesa === 'function') renderAdminMesa();
     renderAdminProducts();
     renderAdminOrders();
     if (typeof renderAdminCoupons === 'function') renderAdminCoupons();

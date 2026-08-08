@@ -12,22 +12,44 @@ function renderAdminProducts() {
   const el = document.getElementById('admin-products-list');
   if (!el) return;
 
-  const products = Object.entries(state.products)
+  const q = (state._adminProductQ || '').trim().toLowerCase();
+  const cat = state._adminProductCat || '';
+
+  let products = Object.entries(state.products)
     .map(([id, p]) => ({ id, ...p }))
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || (a.name || '').localeCompare(b.name || ''));
 
-  if (products.length === 0) {
+  if (q) {
+    products = products.filter(p =>
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.description || '').toLowerCase().includes(q) ||
+      String(p.id).toLowerCase().includes(q)
+    );
+  }
+  if (cat) products = products.filter(p => p.category === cat);
+
+  const catOpts = Object.entries(CATEGORY_LABELS).map(([k, v]) =>
+    `<option value="${k}" ${cat === k ? 'selected' : ''}>${v}</option>`
+  ).join('');
+
+  if (Object.keys(state.products || {}).length === 0) {
     el.innerHTML = '<div class="empty-state">Catálogo GS vazio. Cadastre o primeiro item.</div>';
     return;
   }
 
   el.innerHTML = `
     <div class="admin-products-toolbar">
+      <input type="search" class="search-input" id="admin-product-search" placeholder="Filtrar nome, ID…" value="${escapeHTML(state._adminProductQ || '')}" oninput="adminSetProductFilter(this.value, null)" style="min-width:160px;flex:1"/>
+      <select class="select select-sm" id="admin-product-cat" onchange="adminSetProductFilter(null, this.value)">
+        <option value="">Todas categorias</option>
+        ${catOpts}
+      </select>
       <button type="button" class="btn btn-ghost btn-sm" onclick="adminToggleAllProductChecks(true)">Selecionar todos</button>
       <button type="button" class="btn btn-ghost btn-sm" onclick="adminToggleAllProductChecks(false)">Limpar seleção</button>
-      <button type="button" class="btn btn-primary btn-sm" onclick="copySelectedProductIds()">Copiar IDs selecionados</button>
-      <span class="text-muted admin-hint" id="admin-products-selected-hint" style="margin-left:8px;font-size:12px"></span>
+      <button type="button" class="btn btn-primary btn-sm" onclick="copySelectedProductIds()">Copiar IDs</button>
+      <span class="text-muted admin-hint" id="admin-products-selected-hint" style="font-size:12px"></span>
     </div>
+    ${products.length === 0 ? '<div class="empty-state">Nenhum produto com esse filtro.</div>' : ''}
     <div class="admin-table-wrap">
       <table class="admin-table">
         <thead>
@@ -64,8 +86,11 @@ function renderAdminProducts() {
                 <td class="mono">${stock}</td>
                 <td>${delivery}</td>
                 <td>${escapeHTML(CATEGORY_LABELS[p.category] || p.category || '')}</td>
-                <td class="admin-actions-cell">
+                <td class="admin-actions-cell admin-actions-stock">
                   <button class="btn btn-ghost btn-sm" onclick="adminEditProduct('${p.id}')">Editar</button>
+                  <button class="btn btn-ghost btn-sm" onclick="adminAdjustStock('${p.id}', 3)" title="Repor +3">+3</button>
+                  <button class="btn btn-ghost btn-sm" onclick="adminAdjustStock('${p.id}', 10)" title="Repor +10">+10</button>
+                  <button class="btn btn-ghost btn-sm text-danger" onclick="adminAdjustStock('${p.id}', 0)" title="Esgotar estoque">Esgotar</button>
                   <button class="btn btn-ghost btn-sm text-danger" onclick="adminDeleteProduct('${p.id}')">Apagar</button>
                 </td>
               </tr>
@@ -141,6 +166,32 @@ async function copySelectedProductIds() {
   if (field) {
     const current = field.value.trim();
     field.value = current ? current + ', ' + text : text;
+  }
+}
+
+
+function adminSetProductFilter(q, cat) {
+  if (q !== null && q !== undefined) state._adminProductQ = q;
+  if (cat !== null && cat !== undefined) state._adminProductCat = cat;
+  renderAdminProducts();
+}
+
+async function adminAdjustStock(id, delta) {
+  const p = state.products[id];
+  if (!p) return;
+  let next;
+  if (delta === 0) {
+    next = 0;
+  } else {
+    const cur = (p.stock === null || p.stock === undefined) ? 0 : Number(p.stock) || 0;
+    next = Math.max(0, cur + delta);
+  }
+  try {
+    await db.ref('products/' + id).update({ stock: next, updatedAt: Date.now() });
+    showToast(delta === 0 ? ('Esgotado: ' + p.name) : ('Estoque de ' + p.name + ' → ' + next));
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao ajustar estoque.', 'error');
   }
 }
 
@@ -454,6 +505,11 @@ function switchAdminTab(tab, btn) {
   document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('admin-tab-' + tab)?.classList.remove('hidden');
   if (btn) btn.classList.add('active');
+  else {
+    const match = document.querySelector(`.admin-tab[onclick*="'${tab}'"]`);
+    if (match) match.classList.add('active');
+  }
+  if (tab === 'mesa') renderAdminMesa();
   if (tab === 'products') { renderAdminProducts(); if (typeof fillVendorSelects === 'function') fillVendorSelects(); }
   if (tab === 'orders') renderAdminOrders();
   if (tab === 'coupons') renderAdminCoupons();
@@ -466,6 +522,81 @@ function switchAdminTab(tab, btn) {
   if (tab === 'players') renderAdminPlayers();
   if (tab === 'access') { /* form only */ }
 }
+
+function renderAdminMesa() {
+  const lowEl = document.getElementById('mesa-low-stock');
+  const transitEl = document.getElementById('mesa-in-transit');
+  const eventsEl = document.getElementById('mesa-events');
+  const feedCount = document.getElementById('mesa-feed-count');
+
+  if (lowEl) {
+    const low = Object.entries(state.products || {})
+      .map(([id, p]) => ({ id, ...p }))
+      .filter(p => p.stock !== null && p.stock !== undefined && Number(p.stock) <= 3)
+      .sort((a, b) => (Number(a.stock) || 0) - (Number(b.stock) || 0));
+    if (!low.length) {
+      lowEl.innerHTML = '<p class="text-muted">Nenhum item crítico.</p>';
+    } else {
+      lowEl.innerHTML = `<ul class="mesa-list">${low.slice(0, 12).map(p => {
+        const safeId = String(p.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        return `<li>
+          <strong>${escapeHTML(p.name)}</strong>
+          <span class="mono ${Number(p.stock) === 0 ? 'text-danger' : ''}">${p.stock}</span>
+          <span class="mesa-actions">
+            <button class="btn btn-ghost btn-sm" onclick="adminAdjustStock('${safeId}', 3)">+3</button>
+            <button class="btn btn-ghost btn-sm" onclick="adminAdjustStock('${safeId}', 10)">+10</button>
+            <button class="btn btn-ghost btn-sm text-danger" onclick="adminAdjustStock('${safeId}', 0)">Esgotar</button>
+          </span>
+        </li>`;
+      }).join('')}</ul>`;
+    }
+  }
+
+  if (transitEl) {
+    const orders = (state.allOrders || []).filter(o => {
+      const s = o.status || 'delivered';
+      return s === 'in_transit' || s === 'held_customs' || s === 'resent';
+    });
+    if (!orders.length) {
+      transitEl.innerHTML = '<p class="text-muted">Nada em rota.</p>';
+    } else {
+      transitEl.innerHTML = `<ul class="mesa-list">${orders.slice(0, 15).map(o => `
+        <li>
+          <strong>${escapeHTML(o.productName || '')}</strong>
+          <span class="text-muted">${escapeHTML(o.userName || '')}</span>
+          <span class="status-pill ${statusClass(o.status)}">${STATUS_LABELS[o.status] || o.status}</span>
+          <button class="btn btn-ghost btn-sm" onclick="adminSetOrderStatus('${o.id}', 'delivered')">Entregar</button>
+        </li>
+      `).join('')}</ul>`;
+    }
+  }
+
+  if (eventsEl) {
+    const active = typeof getActiveEvents === 'function' ? getActiveEvents() : [];
+    if (!active.length) {
+      eventsEl.innerHTML = '<p class="text-muted">Nenhum evento ativo.</p>';
+    } else {
+      eventsEl.innerHTML = `<ul class="mesa-list">${active.map(ev => {
+        const flash = ev.useRealSchedule && ev.endsAt && Number(ev.endsAt) > Date.now();
+        const cd = flash && typeof formatCountdown === 'function'
+          ? formatCountdown(Number(ev.endsAt) - Date.now())
+          : (ev.endsLabel || '');
+        return `<li>
+          <strong>${escapeHTML(ev.tagLabel || ev.name || 'Evento')}</strong>
+          ${flash ? '<span class="stock-badge flash-badge">Relâmpago</span>' : ''}
+          ${cd ? `<span class="text-muted">${escapeHTML(String(cd))}</span>` : ''}
+          <span class="text-muted">${(ev.productIds || []).length} produto(s)</span>
+        </li>`;
+      }).join('')}</ul>`;
+    }
+  }
+
+  if (feedCount) {
+    const n = (state.feed || []).length;
+    feedCount.textContent = n ? `${n} mensagem(ns) no canal` : 'Canal vazio';
+  }
+}
+
 
 /* ---------- IA (Gemini) ---------- */
 

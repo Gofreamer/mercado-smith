@@ -187,9 +187,16 @@ const STATUS_MESSAGES = {
   in_transit: 'Pacote em rota. Evite áreas de alta vigilância.',
   held_customs: 'Retido no perímetro. Aguardando liberação discreta.',
   resent: 'Courier substituído. Novo envio em andamento.',
-  delivered: 'Entrega confirmada. Item disponível no inventário.',
+  delivered: 'Entrega confirmada. O item já está no seu cofre — sem rastros no corredor.',
   refunded: 'Valor devolvido ao saldo. Operação encerrada.',
   lost: 'Sinal perdido. Investigação interna em curso.'
+};
+
+const DELIVERY_TOAST_FLAVOR = {
+  delivered: 'Courier confirmou a entrega. Item no cofre.',
+  held_customs: 'Alfândega reteve o pacote. Aguarde o núcleo.',
+  resent: 'Novo courier em rota com seu pedido.',
+  lost: 'Sinal do pacote perdido. O núcleo investiga.'
 };
 
 const STATUS_CLASS = {
@@ -319,4 +326,20 @@ function canSeeSecret(product) {
 function canNegotiate() {
   const rank = getUserRank(state.profile, state.orders);
   return rankMeets(rank.id, 'platina') || !!(state.profile?.isAdmin);
+}
+
+
+function updateDocumentTitle() {
+  try {
+    const inv = state.profile?.inventory || {};
+    const inTransit = Object.values(inv).filter(i => {
+      const s = i.status || 'delivered';
+      return s === 'in_transit' || s === 'held_customs' || s === 'resent';
+    }).length;
+    document.title = inTransit > 0
+      ? `GS · ${inTransit} em trânsito`
+      : 'Global Smith';
+  } catch (e) {
+    document.title = 'Global Smith';
+  }
 }

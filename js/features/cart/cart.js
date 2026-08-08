@@ -263,11 +263,32 @@ async function checkoutCart() {
     clearCart();
     clearCartStorage();
     updateCartBadge();
-    closeCart();
-  }
-
-  if (btn) {
+    showCartPurchaseSuccess();
+  } else if (btn) {
     btn.disabled = false;
     btn.textContent = 'Finalizar Compra';
   }
+}
+
+function showCartPurchaseSuccess() {
+  const body = document.getElementById('cart-body');
+  const footer = document.getElementById('cart-footer');
+  if (footer) footer.classList.add('hidden');
+  if (body) {
+    body.innerHTML = `
+      <div class="cart-success">
+        <div class="cart-success-mark">GS</div>
+        <h3>Pedido registrado</h3>
+        <p>Courier notificado. Acompanhe em <strong>Pedidos</strong>.</p>
+      </div>
+    `;
+  }
+  setTimeout(() => {
+    closeCart();
+    const btn = document.getElementById('btn-checkout');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Finalizar Compra';
+    }
+  }, 2200);
 }

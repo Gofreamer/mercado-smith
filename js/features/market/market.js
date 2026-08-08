@@ -141,18 +141,29 @@ function productCardHTML(p, opts = {}) {
        <div class="product-event-disc">−${disc.pct}% evento</div>`
     : `<div class="product-price">${formatMoney(p.price)}</div>`;
 
+  const isLast = !isOut && p.stock !== null && p.stock !== undefined && Number(p.stock) === 1;
+  const isLow = !isOut && !isLast && p.stock !== null && p.stock !== undefined && p.stock <= 5;
+  const flash = typeof getFlashInfoForProduct === 'function' ? getFlashInfoForProduct(p.id) : null;
+  const flashBadge = flash
+    ? `<div class="stock-badge flash-badge">${flash.label}<span class="flash-countdown" data-ends="${flash.endsAt || ''}">${flash.countdown || ''}</span></div>`
+    : '';
+
   const cardClass = [
     'product-card',
     isOut ? 'out-of-stock' : '',
     opts.dark ? 'product-card-dark' : '',
     p.secretRank ? 'product-card-secret' : '',
-    eventTags.length ? 'product-card-event' : ''
+    eventTags.length ? 'product-card-event' : '',
+    flash ? 'product-card-flash' : '',
+    isLast ? 'product-card-last' : ''
   ].filter(Boolean).join(' ');
 
   return `
     <div class="${cardClass}" onclick="openProductModal('${p.id}')">
       ${isOut ? '<div class="stock-badge out">Esgotado</div>' : ''}
-      ${!isOut && p.stock !== null && p.stock !== undefined && p.stock <= 5 ? `<div class="stock-badge low">Só ${p.stock}</div>` : ''}
+      ${isLast ? '<div class="stock-badge last-unit">Última unidade</div>' : ''}
+      ${isLow ? `<div class="stock-badge low">Só ${p.stock}</div>` : ''}
+      ${flashBadge}
       ${secretBadge}${illegalBadge}${eventBadges}
       ${imgHtml}
       <div class="product-body">
@@ -210,7 +221,8 @@ function renderProducts() {
       <div class="empty-state empty-state-lg">
         <div class="empty-icon">📦</div>
         <h3>Nada nesta vitrine</h3>
-        <p>O catálogo GS não encontrou correspondência. Ajuste busca, categoria ou volte mais tarde.</p>
+        <p>O catálogo GS não encontrou correspondência. Ajuste busca, categoria ou volte mais tarde — o núcleo repõe lotes sem aviso.</p>
+        <button class="btn btn-ghost" onclick="(function(){const s=document.getElementById('search-input');if(s)s.value='';const c=document.getElementById('category-filter');if(c)c.value='';if(typeof filterProducts==='function')filterProducts();else if(typeof renderProducts==='function')renderProducts();})()">Limpar filtros</button>
       </div>
     `;
     return;
@@ -231,7 +243,7 @@ function renderMarketFeed() {
   if (!el) return;
   const items = (state.feed || []).slice(0, 6);
   if (!items.length) {
-    el.innerHTML = `<div class="feed-empty">Mercado em silêncio... por enquanto.</div>`;
+    el.innerHTML = `<div class="feed-empty">Canal GS em silêncio… o núcleo só fala quando importa.</div>`;
     return;
   }
   el.innerHTML = items.map(e => `
@@ -472,7 +484,7 @@ function renderMarketSidePanels() {
                 <span class="feed-compact-time">${timeAgo(e.createdAt)}</span>
               </div>
             </div>
-          `).join('') : '<p class="text-muted" style="font-size:12px">Mercado em silêncio…</p>'}
+          `).join('') : '<p class="text-muted" style="font-size:12px">Canal em silêncio…</p>'}
         </div>
       </div>
     `;

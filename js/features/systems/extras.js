@@ -582,6 +582,60 @@ function getActiveEvents() {
     });
 }
 
+
+/** Lote relâmpago: evento ativo com relógio real + endsAt no futuro */
+function getFlashEvents() {
+  const now = Date.now();
+  return getActiveEvents().filter(ev => {
+    if (!ev.useRealSchedule) return false;
+    const end = ev.endsAt != null ? Number(ev.endsAt) : null;
+    return end && !isNaN(end) && end > now;
+  });
+}
+
+function formatCountdown(ms) {
+  if (ms <= 0) return 'encerrado';
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d > 0) return d + 'd ' + h + 'h';
+  if (h > 0) return h + 'h ' + m + 'm';
+  return m + 'm';
+}
+
+function getFlashInfoForProduct(productId) {
+  const now = Date.now();
+  let best = null;
+  getFlashEvents().forEach(ev => {
+    const ids = ev.productIds || [];
+    if (!(ids.includes(productId) || (ev.allProducts && !ids.length))) return;
+    const endsAt = Number(ev.endsAt);
+    if (!best || endsAt < best.endsAt) {
+      best = {
+        id: ev.id,
+        label: ev.tagLabel || 'Relâmpago',
+        endsAt,
+        countdown: formatCountdown(endsAt - now)
+      };
+    }
+  });
+  return best;
+}
+
+function tickFlashCountdowns() {
+  const now = Date.now();
+  document.querySelectorAll('.flash-countdown[data-ends]').forEach(el => {
+    const ends = Number(el.getAttribute('data-ends'));
+    if (!ends) return;
+    el.textContent = ' · ' + formatCountdown(ends - now);
+  });
+}
+
+if (typeof window !== 'undefined' && !window._gsFlashTicker) {
+  window._gsFlashTicker = setInterval(tickFlashCountdowns, 30000);
+}
+
 function getActiveEventTagsForProduct(productId) {
   const tags = [];
   getActiveEvents().forEach(ev => {
@@ -631,7 +685,7 @@ function renderEventBanner() {
       <span class="event-banner-text">${escapeHTML(ev.bannerText || ev.description || ev.name)}</span>
       ${couponBit}
       ${discBit}
-      ${ev.endsLabel ? `<span class="event-banner-ends">até ${escapeHTML(ev.endsLabel)}</span>` : (ev.useRealSchedule && ev.endsAt ? `<span class="event-banner-ends">até ${formatDate(ev.endsAt)}</span>` : '')}
+      ${ev.endsLabel ? `<span class="event-banner-ends">até ${escapeHTML(ev.endsLabel)}</span>` : (ev.useRealSchedule && ev.endsAt ? `<span class="event-banner-ends flash-countdown" data-ends="${Number(ev.endsAt)}">some em ${formatCountdown(Number(ev.endsAt) - Date.now())}</span>` : '')}
       ${ev.couponCode ? `<button type="button" class="btn btn-ghost btn-sm" onclick="applyEventCoupon('${escapeHTML(ev.couponCode)}')">Aplicar cupom</button>` : ''}
     </div>
   `;

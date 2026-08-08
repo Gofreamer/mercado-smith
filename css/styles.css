@@ -3170,3 +3170,128 @@ body.theme-blackmarket .brand {
   cursor: pointer;
   accent-color: var(--accent, #6ee7b7);
 }
+
+
+/* —— Última unidade + lote relâmpago —— */
+.stock-badge.last-unit {
+  background: #7f1d1d;
+  color: #fecaca;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.stock-badge.flash-badge {
+  background: linear-gradient(135deg, #9a3412, #c2410c);
+  color: #ffedd5;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.flash-countdown {
+  font-size: 10px;
+  opacity: 0.9;
+  font-weight: 500;
+}
+.product-card-flash {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 1px #ea580c55, 0 8px 24px #ea580c22;
+  position: relative;
+}
+.product-card-flash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px #fb923c44;
+}
+.product-card-last {
+  border-color: #f87171;
+}
+
+/* —— Cart success pós-compra —— */
+.cart-success {
+  text-align: center;
+  padding: 48px 24px;
+}
+.cart-success-mark {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  border-radius: 12px;
+  background: #0b0e14;
+  border: 1px solid #6ee7b7;
+  color: #6ee7b7;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+.cart-success h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+.cart-success p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* —— Mesa admin —— */
+.mesa-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mesa-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.mesa-list li:last-child { border-bottom: none; }
+.mesa-actions {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.admin-actions-stock {
+  white-space: nowrap;
+}
+.admin-actions-stock .btn {
+  padding: 4px 8px;
+}
+
+/* —— Mobile: saldo + carrinho sempre no polegar —— */
+@media (max-width: 860px) {
+  .header-right {
+    gap: 6px;
+  }
+  .balance-pill {
+    padding: 6px 10px;
+  }
+  .balance-value {
+    font-size: 13px;
+  }
+  .cart-btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .header-right .btn-ghost.btn-sm {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+}
+@media (max-width: 400px) {
+  .brand {
+    display: none;
+  }
+}

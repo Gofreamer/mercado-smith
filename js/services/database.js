@@ -2,17 +2,42 @@
 
 function listenUserProfile(uid) {
   db.ref('users/' + uid).on('value', (snap) => {
+    const prevInv = state.profile?.inventory || {};
     state.profile = snap.val() || null;
     state.wishlist = state.profile?.wishlist || {};
     updateBalanceUI();
     updateAdminVisibility();
     updateBlackMarketNav();
+    if (typeof updateDocumentTitle === 'function') updateDocumentTitle();
+    // Toast cinematográfico quando item muda para delivered
+    if (typeof notifyDeliveryStatusChanges === 'function') {
+      notifyDeliveryStatusChanges(prevInv, state.profile?.inventory || {});
+    }
     if (state.currentView === 'inventory') renderInventory();
     if (state.currentView === 'profile') renderProfile();
     if (state.currentView === 'wishlist') renderWishlist();
     if (state.currentView === 'bank' && typeof renderBank === 'function') renderBank();
     if (state.currentView === 'market' && typeof renderMarketSidePanels === 'function') renderMarketSidePanels();
     if (state.currentView === 'blackmarket') renderBlackMarket();
+  });
+}
+
+function notifyDeliveryStatusChanges(prevInv, nextInv) {
+  if (!state._deliveryToastReady) {
+    state._deliveryToastReady = true;
+    return; // ignora primeira carga
+  }
+  Object.entries(nextInv || {}).forEach(([key, item]) => {
+    const prev = prevInv?.[key];
+    if (!prev || !item) return;
+    const was = prev.status || 'delivered';
+    const now = item.status || 'delivered';
+    if (was === now) return;
+    const flavor = (typeof DELIVERY_TOAST_FLAVOR !== 'undefined' && DELIVERY_TOAST_FLAVOR[now])
+      || (STATUS_MESSAGES && STATUS_MESSAGES[now])
+      || ('Status: ' + now);
+    const name = item.name || 'Item';
+    showToast(name + ' — ' + flavor, now === 'delivered' ? 'success' : 'info');
   });
 }
 

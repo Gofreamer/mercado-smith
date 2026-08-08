@@ -4,6 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Global Smith</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b0e14'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='system-ui,sans-serif' font-weight='700' font-size='14' fill='%236ee7b7'%3EGS%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -229,7 +230,8 @@
         </div>
 
         <div class="admin-tabs">
-          <button class="admin-tab active" onclick="switchAdminTab('products', this)">Produtos</button>
+          <button class="admin-tab active" onclick="switchAdminTab('mesa', this)">Mesa</button>
+          <button class="admin-tab" onclick="switchAdminTab('products', this)">Produtos</button>
           <button class="admin-tab" onclick="switchAdminTab('orders', this)">Pedidos / Entregas</button>
           <button class="admin-tab" onclick="switchAdminTab('balance', this)">Saldo</button>
           <button class="admin-tab" onclick="switchAdminTab('loans', this)">Empréstimos</button>
@@ -243,8 +245,33 @@
           <button class="admin-tab" onclick="switchAdminTab('log', this)">Log</button>
         </div>
 
+        <!-- Tab: Mesa (painel de sessão) -->
+        <div id="admin-tab-mesa" class="admin-tab-panel">
+          <div class="admin-split">
+            <div class="admin-card">
+              <h3>Estoque baixo</h3>
+              <p class="text-muted admin-hint">stock ≤ 3 (exceto ilimitado)</p>
+              <div id="mesa-low-stock"></div>
+            </div>
+            <div class="admin-card">
+              <h3>Pedidos em trânsito</h3>
+              <div id="mesa-in-transit"></div>
+            </div>
+            <div class="admin-card">
+              <h3>Lotes / eventos ativos</h3>
+              <div id="mesa-events"></div>
+            </div>
+            <div class="admin-card">
+              <h3>Canal GS</h3>
+              <p class="text-muted admin-hint" id="mesa-feed-count"></p>
+              <button type="button" class="btn btn-ghost text-danger" onclick="adminClearFeed()">Limpar feed</button>
+              <button type="button" class="btn btn-primary" onclick="switchAdminTab('access', document.querySelector('[onclick*=access]'))">Publicar no feed</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Tab: Produtos -->
-        <div id="admin-tab-products" class="admin-tab-panel">
+        <div id="admin-tab-products" class="admin-tab-panel hidden">
           <div class="admin-card ai-card">
             <h3>✨ Gerar produto com IA</h3>
             <p class="text-muted admin-hint">Descreva a ideia (ou um lote). <strong>Local</strong> = sem limite. <strong>Firebase AI</strong> = Gemini pelo projeto. Quantidade &gt; 1 gera vários itens de uma vez.</p>
@@ -651,6 +678,7 @@
                 <div class="form-group">
                   <label>IDs dos produtos</label>
                   <textarea id="event-products" rows="2" placeholder="id1, id2, id3"></textarea>
+                  <p class="text-muted admin-hint">Dica: marque “usar relógio real” + data de fim = lote relâmpago (card destacado + countdown).</p>
                 </div>
                 <div class="form-row">
                   <div class="form-group">

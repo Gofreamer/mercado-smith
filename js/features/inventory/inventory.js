@@ -25,8 +25,8 @@ function renderInventory() {
       <div class="empty-state empty-state-lg">
         <div class="empty-icon">🎒</div>
         <h3>Cofre vazio</h3>
-        <p>Nada aqui ainda. O mercado GS espera — qualidade, poder e exclusividade.</p>
-        <button class="btn btn-primary" onclick="showView('market')">Entrar no Mercado</button>
+        <p>Nada aqui ainda. O núcleo GS guarda o que você adquire — qualidade, poder e exclusividade.</p>
+        <button class="btn btn-primary" onclick="showView('market')">Explorar o catálogo</button>
       </div>
     `;
     return;
@@ -145,7 +145,7 @@ function renderOrders() {
       <div class="empty-state empty-state-lg">
         <div class="empty-icon">🧾</div>
         <h3>Nenhuma operação registrada</h3>
-        <p>Quando o courier sair com seu pacote, o rastro aparece aqui.</p>
+        <p>Quando o courier sair com seu pacote, o rastro aparece aqui. Até lá, o canal permanece em silêncio.</p>
         <button class="btn btn-primary" onclick="showView('market')">Explorar o catálogo</button>
       </div>
     `;
