@@ -4,13 +4,67 @@ function getCartCount() {
   return Object.values(state.cart).reduce((sum, item) => sum + (item.qty || 0), 0);
 }
 
-function getCartTotal() {
+/** Preço unitário com desconto de evento (se houver) */
+function getCartUnitPrice(productId) {
+  const product = state.products[productId];
+  if (!product) return 0;
+  const list = Number(product.price) || 0;
+  if (typeof getEventDiscountForProduct === 'function') {
+    const d = getEventDiscountForProduct(productId, list);
+    return d && d.final != null ? d.final : list;
+  }
+  return list;
+}
+
+function getCartLineEventPct(productId) {
+  const product = state.products[productId];
+  if (!product || typeof getEventDiscountForProduct !== 'function') return 0;
+  const d = getEventDiscountForProduct(productId, Number(product.price) || 0);
+  return d && d.pct ? d.pct : 0;
+}
+
+/** Subtotal já com descontos de evento (antes do cupom) */
+function getCartSubtotal() {
+  let total = 0;
+  for (const [pid, item] of Object.entries(state.cart)) {
+    if (!state.products[pid]) continue;
+    total += getCartUnitPrice(pid) * (item.qty || 0);
+  }
+  return total;
+}
+
+/** Soma dos preços de lista (sem evento) */
+function getCartListSubtotal() {
   let total = 0;
   for (const [pid, item] of Object.entries(state.cart)) {
     const product = state.products[pid];
     if (product) total += (Number(product.price) || 0) * (item.qty || 0);
   }
   return total;
+}
+
+function getCartEventSavings() {
+  return Math.max(0, getCartListSubtotal() - getCartSubtotal());
+}
+
+/** Total a pagar: evento + cupom */
+function getCartPayable() {
+  const sub = getCartSubtotal();
+  let couponDisc = 0;
+  if (state.appliedCoupon && state.appliedCouponData && typeof calcCouponDiscount === 'function') {
+    couponDisc = calcCouponDiscount(sub, state.appliedCouponData);
+  }
+  return {
+    listSubtotal: getCartListSubtotal(),
+    eventSavings: getCartEventSavings(),
+    subtotal: sub,
+    couponDiscount: couponDisc,
+    total: Math.max(0, sub - couponDisc)
+  };
+}
+
+function getCartTotal() {
+  return getCartPayable().total;
 }
 
 function updateCartBadge() {
@@ -147,9 +201,12 @@ function renderCart() {
       `;
     }
 
-    const lineTotal = (Number(p.price) || 0) * item.qty;
+    const listUnit = Number(p.price) || 0;
+    const unit = getCartUnitPrice(pid);
+    const evtPct = getCartLineEventPct(pid);
+    const lineTotal = unit * item.qty;
     const imgHtml = p.image
-      ? `<img src="${escapeHTML(p.image)}" alt="" onerror="this.parentElement.innerHTML='<div class=\\'cart-item-placeholder\\'>?</div>'"/>`
+      ? `<img src="${escapeHTML(p.image)}" alt="" onerror="this.parentElement.innerHTML='<div class=\'cart-item-placeholder\'>?</div>'"/>`
       : `<div class="cart-item-placeholder">${(p.name || '?')[0]}</div>`;
 
     const maxStock = (p.stock !== null && p.stock !== undefined) ? p.stock : 99;
@@ -157,13 +214,25 @@ function renderCart() {
       ? `<div class="cart-delivery">Chega em ~${p.deliveryDays}d</div>`
       : `<div class="cart-delivery instant">Entrega imediata</div>`;
 
+    const priceHtml = evtPct > 0
+      ? `<div class="cart-item-price">
+           <span class="price-old">${formatMoney(listUnit)}</span>
+           <span class="cart-unit-now">${formatMoney(unit)}</span>
+           <span class="cart-evt-pct">−${evtPct}%</span>
+           ${item.qty > 1 ? `<span class="cart-line-total"> · ${formatMoney(lineTotal)}</span>` : ''}
+         </div>`
+      : `<div class="cart-item-price">
+           <span class="cart-unit-now">${formatMoney(unit)}</span>
+           ${item.qty > 1 ? `<span class="cart-line-total"> · ${formatMoney(lineTotal)}</span>` : ''}
+         </div>`;
+
     return `
       <div class="cart-item">
         <div class="cart-item-img">${imgHtml}</div>
         <div class="cart-item-info">
           <div class="cart-item-name">${escapeHTML(p.name)}</div>
           <div class="cart-item-cat">${escapeHTML(CATEGORY_LABELS[p.category] || p.category || '')}</div>
-          <div class="cart-item-price">${formatMoney(p.price)} <span class="cart-line-total">· ${formatMoney(lineTotal)}</span></div>
+          ${priceHtml}
           ${deliveryHint}
         </div>
         <div class="cart-item-actions">
@@ -179,30 +248,44 @@ function renderCart() {
     `;
   }).join('');
 
-  const subtotal = getCartTotal();
-  let discount = 0;
-  if (state.appliedCoupon && state.appliedCouponData) {
-    discount = calcCouponDiscount(subtotal, state.appliedCouponData);
-  }
+  const pay = getCartPayable();
   const totalEl = document.getElementById('cart-total-value');
   const countEl = document.getElementById('cart-count-label');
   const discountEl = document.getElementById('cart-discount-row');
   const discountVal = document.getElementById('cart-discount-value');
-  if (totalEl) totalEl.textContent = formatMoney(Math.max(0, subtotal - discount));
+  const eventRow = document.getElementById('cart-event-row');
+  const eventVal = document.getElementById('cart-event-value');
+
+  if (totalEl) totalEl.textContent = formatMoney(pay.total);
   if (countEl) countEl.textContent = `${getCartCount()} item${getCartCount() !== 1 ? 's' : ''}`;
+
+  if (eventRow && eventVal) {
+    if (pay.eventSavings > 0) {
+      eventRow.classList.remove('hidden');
+      eventVal.textContent = '− ' + formatMoney(pay.eventSavings);
+    } else {
+      eventRow.classList.add('hidden');
+    }
+  }
+
   if (discountEl && discountVal) {
-    if (discount > 0) {
+    if (pay.couponDiscount > 0) {
       discountEl.classList.remove('hidden');
-      discountVal.textContent = '- ' + formatMoney(discount);
+      discountVal.textContent = '− ' + formatMoney(pay.couponDiscount);
     } else {
       discountEl.classList.add('hidden');
     }
   }
+
   const applied = document.getElementById('cart-coupon-applied');
   if (applied) {
     if (state.appliedCoupon) {
       applied.classList.remove('hidden');
-      applied.innerHTML = `Cupom <strong>${escapeHTML(state.appliedCoupon)}</strong> <button class="btn btn-ghost btn-sm" onclick="clearCartCoupon()">Remover</button>`;
+      const c = state.appliedCouponData;
+      const tip = c
+        ? (c.type === 'percent' ? ` (−${c.value}%)` : ` (−${formatMoney(c.value)})`)
+        : '';
+      applied.innerHTML = `Cupom <strong>${escapeHTML(state.appliedCoupon)}</strong>${tip} <button class="btn btn-ghost btn-sm" onclick="clearCartCoupon()">Remover</button>`;
     } else {
       applied.classList.add('hidden');
       applied.innerHTML = '';
@@ -217,15 +300,10 @@ async function checkoutCart() {
     return;
   }
 
-  const total = getCartTotal();
+  const pay = getCartPayable();
   const balance = Number(state.profile?.balance) || 0;
+  const payTotal = pay.total;
 
-  let payTotal = total;
-  let discount = 0;
-  if (state.appliedCoupon && state.appliedCouponData) {
-    discount = calcCouponDiscount(total, state.appliedCouponData);
-    payTotal = Math.max(0, total - discount);
-  }
   if (balance < payTotal) {
     showToast(`Saldo insuficiente. Faltam ${formatMoney(payTotal - balance)}.`, 'error');
     return;
@@ -233,9 +311,10 @@ async function checkoutCart() {
 
   const rows = [
     { label: 'Itens', value: `${getCartCount()} no carrinho` },
-    { label: 'Subtotal', value: formatMoney(total) }
+    { label: 'Lista', value: formatMoney(pay.listSubtotal) }
   ];
-  if (discount > 0) rows.push({ label: 'Desconto', value: `− ${formatMoney(discount)}`, success: true });
+  if (pay.eventSavings > 0) rows.push({ label: 'Evento', value: `− ${formatMoney(pay.eventSavings)}`, success: true });
+  if (pay.couponDiscount > 0) rows.push({ label: 'Cupom', value: `− ${formatMoney(pay.couponDiscount)}`, success: true });
   rows.push(
     { label: 'Total', value: formatMoney(payTotal), success: true },
     { label: 'Saldo após', value: formatMoney(balance - payTotal) }

@@ -3329,3 +3329,38 @@ body.theme-blackmarket .brand {
   gap: 12px;
   align-items: start;
 }
+
+
+/* Carrinho — descontos */
+.cart-item-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+}
+.cart-item-price .price-old {
+  text-decoration: line-through;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.cart-unit-now {
+  color: var(--success, #6ee7b7);
+  font-weight: 600;
+}
+.cart-evt-pct {
+  font-size: 11px;
+  color: #fb923c;
+  font-weight: 600;
+}
+.cart-line-total {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.cart-total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}

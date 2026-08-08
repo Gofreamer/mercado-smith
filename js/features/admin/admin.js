@@ -1588,6 +1588,7 @@ function renderAdminPlayers() {
                 <td>${u.blackMarketAccess ? '<span class="tag-illegal">Sim</span>' : '—'}</td>
                 <td class="admin-actions-cell">
                   <button class="btn btn-ghost btn-sm" onclick="adminViewPlayerInventory('${u.id}')">Inventário</button>
+                  <button class="btn btn-ghost btn-sm" onclick="adminViewPlayerLedger('${u.id}')">Extrato</button>
                   <button class="btn btn-ghost btn-sm" onclick="adminOpenRankEditor('${u.id}')">Rank</button>
                 </td>
               </tr>
@@ -1659,6 +1660,75 @@ async function adminViewPlayerInventory(uid) {
   } catch (e) {
     console.error(e);
     box.innerHTML = '<div class="empty-state">Erro ao carregar inventário (rules?).</div>';
+  }
+}
+
+
+async function adminViewPlayerLedger(uid) {
+  const box = document.getElementById('admin-player-detail');
+  if (!box) return;
+  box.classList.remove('hidden');
+  box.innerHTML = '<div class="empty-state">Carregando extrato…</div>';
+
+  try {
+    const snap = await db.ref('users/' + uid).once('value');
+    const u = snap.val() || {};
+    const ledger = Object.entries(u.ledger || {})
+      .map(([id, e]) => ({ id, ...e }))
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const bal = Number(u.balance) || 0;
+    const name = u.name || uid;
+
+    box.innerHTML = `
+      <div class="admin-card admin-card-wide" style="margin-top:16px">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px">
+          <h3 style="margin:0">Extrato — ${escapeHTML(name)}</h3>
+          <span class="mono success">${formatMoney(bal)}</span>
+          <button class="btn btn-ghost btn-sm" onclick="adminViewPlayerInventory('${uid}')">Ver inventário</button>
+          <button class="btn btn-ghost btn-sm text-danger" onclick="adminClearPlayerLedger('${uid}')">Limpar extrato (${ledger.length})</button>
+        </div>
+        <p class="text-muted admin-hint">${ledger.length} movimento(s) · UID: ${uid}</p>
+        ${ledger.length === 0 ? '<div class="empty-state">Extrato vazio — conta quieta.</div>' : `
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Quando</th>
+                  <th>Tipo</th>
+                  <th>Descrição</th>
+                  <th>Valor</th>
+                  <th>Saldo após</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${ledger.map(e => {
+                  const amt = Number(e.amount) || 0;
+                  const pos = amt >= 0;
+                  const typeLabel = typeof ledgerTypeLabel === 'function' ? ledgerTypeLabel(e.type) : (e.type || '—');
+                  const cat = e.category && typeof RP_SPEND_CATEGORIES !== 'undefined'
+                    ? (RP_SPEND_CATEGORIES[e.category] || e.category) : '';
+                  return `
+                    <tr>
+                      <td style="font-size:12px;white-space:nowrap">${e.createdAt ? formatDateTime(e.createdAt) : '—'}</td>
+                      <td style="font-size:12px">${escapeHTML(typeLabel)}</td>
+                      <td>
+                        <div class="admin-prod-name">${escapeHTML(e.label || typeLabel)}</div>
+                        ${cat ? `<div class="admin-prod-desc">${escapeHTML(cat)}</div>` : ''}
+                      </td>
+                      <td class="mono ${pos ? 'success' : 'text-danger'}">${pos ? '+' : ''}${formatMoney(amt)}</td>
+                      <td class="mono">${e.balanceAfter != null ? formatMoney(e.balanceAfter) : '—'}</td>
+                    </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    `;
+    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    console.error(e);
+    box.innerHTML = '<div class="empty-state">Erro ao carregar extrato (rules?).</div>';
   }
 }
 

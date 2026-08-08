@@ -1,6 +1,80 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true
+    "users": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('isAdmin').val() === true",
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('isAdmin').val() === true)",
+        ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('isAdmin').val() === true)",
+        "isAdmin": {
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('isAdmin').val() === true || newData.val() === false || newData.val() == null)"
+        }
+      }
+    },
+
+    "products": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('isAdmin').val() === true",
+      "$pid": {
+        "stock": {
+          ".write": "auth != null"
+        }
+      }
+    },
+
+    "orders": {
+      ".read": "auth != null",
+      "$oid": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('isAdmin').val() === true || (!data.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid))"
+      }
+    },
+
+    "marketFeed": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('isAdmin').val() === true"
+    },
+
+    "coupons": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('isAdmin').val() === true",
+      "$code": {
+        "uses": {
+          ".write": "auth != null"
+        }
+      }
+    },
+
+    "offers": {
+      ".read": "auth != null",
+      "$oid": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('isAdmin').val() === true || (!data.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid))"
+      }
+    },
+
+    "events": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('isAdmin').val() === true"
+    },
+
+    "vendors": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('isAdmin').val() === true"
+    },
+
+    "siteSettings": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('isAdmin').val() === true"
+    },
+
+    "adminLog": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('isAdmin').val() === true",
+      ".write": "auth != null"
+    },
+
+    "loanRequests": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('isAdmin').val() === true",
+      "$lid": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('isAdmin').val() === true || (!data.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid))"
+      }
+    }
   }
 }
