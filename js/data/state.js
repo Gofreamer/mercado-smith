@@ -29,7 +29,10 @@ const state = {
   _restockNotified: {}
 };
 
-const ADMIN_UIDS = [];
+/** UIDs com admin forçado (opcional). Preferir users/{uid}/isAdmin = true no Firebase. */
+const ADMIN_UIDS = [
+  // 'cole_o_uid_admin_aqui_se_quiser_fallback'
+];
 
 function loadCartFromStorage(uid) {
   try {

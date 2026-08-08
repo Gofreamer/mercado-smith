@@ -313,8 +313,8 @@ function rankProgress(profile, orders) {
 /* ========== ACESSO ========== */
 
 function hasBlackMarketAccess() {
-  return !!(state.profile?.blackMarketAccess || state.profile?.isAdmin ||
-    (state.user && ADMIN_UIDS.includes(state.user.uid)));
+  return !!(state.profile?.blackMarketAccess ||
+    (typeof isUserAdmin === 'function' ? isUserAdmin() : (state.profile?.isAdmin || (state.user && ADMIN_UIDS.includes(state.user.uid)))));
 }
 
 function canSeeSecret(product) {

@@ -483,8 +483,14 @@ function updateBalanceUI() {
   }
 }
 
+function isUserAdmin() {
+  if (state.user && Array.isArray(ADMIN_UIDS) && ADMIN_UIDS.includes(state.user.uid)) return true;
+  const v = state.profile?.isAdmin;
+  return v === true || v === 'true' || v === 1 || v === '1';
+}
+
 function updateAdminVisibility() {
-  const isAdmin = state.profile?.isAdmin || ADMIN_UIDS.includes(state.user?.uid);
+  const isAdmin = isUserAdmin();
   document.querySelectorAll('.admin-only').forEach(el => {
     el.classList.toggle('hidden', !isAdmin);
   });
