@@ -3295,3 +3295,37 @@ body.theme-blackmarket .brand {
     display: none;
   }
 }
+
+
+/* Banco — benefício + chips de valor */
+.bank-benefit-card {
+  margin: 12px 0 4px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0f172a 0%, #12261f 100%);
+  border: 1px solid #6ee7b744;
+}
+.bank-benefit-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.bank-benefit-text {
+  font-size: 14px;
+  color: #6ee7b7;
+  font-weight: 600;
+}
+.rp-amount-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.mesa-finance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  align-items: start;
+}

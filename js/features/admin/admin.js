@@ -524,10 +524,56 @@ function switchAdminTab(tab, btn) {
 }
 
 function renderAdminMesa() {
+  const finEl = document.getElementById('mesa-finance');
   const lowEl = document.getElementById('mesa-low-stock');
   const transitEl = document.getElementById('mesa-in-transit');
   const eventsEl = document.getElementById('mesa-events');
   const feedCount = document.getElementById('mesa-feed-count');
+
+  if (finEl) {
+    const players = Object.entries(state.allUsers || {})
+      .map(([id, u]) => ({ id, ...u }))
+      .filter(u => !u.isAdmin)
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const pick = players[0] || Object.entries(state.allUsers || {}).map(([id, u]) => ({ id, ...u }))[0];
+    if (!pick) {
+      finEl.innerHTML = '<p class="text-muted">Nenhum jogador carregado.</p>';
+    } else {
+      const bal = Number(pick.balance) || 0;
+      const cardSt = (pick.card && pick.card.status) || 'active';
+      const loans = Object.values(pick.loans || {});
+      const pending = loans.find(l => l.status === 'pending');
+      const active = loans.find(l => l.status === 'active');
+      const uid = pick.id;
+      finEl.innerHTML = `
+        <div class="mesa-finance-grid">
+          <div>
+            <div class="text-muted" style="font-size:12px">Jogador</div>
+            <strong>${escapeHTML(pick.name || uid)}</strong>
+            <div class="mono success" style="margin-top:4px">${formatMoney(bal)}</div>
+          </div>
+          <div>
+            <div class="text-muted" style="font-size:12px">Cartão</div>
+            <span class="status-pill ${typeof cardStatusClass === 'function' ? cardStatusClass(cardSt) : ''}">${typeof cardStatusLabel === 'function' ? cardStatusLabel(cardSt) : cardSt}</span>
+          </div>
+          <div>
+            <div class="text-muted" style="font-size:12px">Crédito</div>
+            ${pending ? `<span class="status-pill status-held">Pedido ${formatMoney(pending.amount)}</span>` :
+              active ? `<span class="status-pill status-transit">Dívida ${formatMoney(active.remaining != null ? active.remaining : active.amount)}</span>` :
+              '<span class="text-muted">—</span>'}
+          </div>
+        </div>
+        <div class="mesa-finance-actions" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
+          <button type="button" class="btn btn-primary btn-sm" onclick="mesaQuickBalance('${uid}', 500, 'Pagamento de missão')">+$500 missão</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="mesaQuickBalance('${uid}', 1000, 'Pagamento de missão')">+$1.000 missão</button>
+          <button type="button" class="btn btn-ghost btn-sm text-danger" onclick="mesaQuickBalance('${uid}', -150, 'Multa')">−$150 multa</button>
+          <button type="button" class="btn btn-ghost btn-sm text-danger" onclick="mesaQuickBalance('${uid}', -500, 'Multa / taxa')">−$500 multa</button>
+          ${cardSt === 'active' ? `<button type="button" class="btn btn-ghost btn-sm" onclick="mesaSetCardStatus('${uid}', 'suspended')">Suspender cartão</button>` : ''}
+          ${cardSt === 'suspended' ? `<button type="button" class="btn btn-ghost btn-sm" onclick="mesaSetCardStatus('${uid}', 'active')">Reativar cartão</button>` : ''}
+        </div>
+      `;
+    }
+  }
 
   if (lowEl) {
     const low = Object.entries(state.products || {})
@@ -597,6 +643,48 @@ function renderAdminMesa() {
   }
 }
 
+
+
+async function mesaQuickBalance(uid, delta, label) {
+  if (!uid || !delta) return;
+  try {
+    const snap = await db.ref('users/' + uid + '/balance').once('value');
+    const prev = Number(snap.val()) || 0;
+    const next = prev + Number(delta);
+    await db.ref('users/' + uid + '/balance').set(next);
+    if (typeof pushLedgerEntry === 'function') {
+      await pushLedgerEntry(uid, {
+        type: delta >= 0 ? 'deposit' : 'withdraw',
+        amount: Number(delta),
+        balanceAfter: next,
+        label: label || (delta >= 0 ? 'Crédito do núcleo GS' : 'Débito do núcleo GS')
+      });
+    }
+    if (typeof pushAdminLog === 'function') {
+      pushAdminLog({ type: 'balance', userId: uid, amount: delta, to: next, note: label });
+    }
+    showToast((delta >= 0 ? '+' : '') + formatMoney(delta) + ' · ' + (label || 'ajuste'));
+    renderAdminMesa();
+  } catch (e) {
+    console.error(e);
+    showToast('Erro no ajuste rápido.', 'error');
+  }
+}
+
+async function mesaSetCardStatus(uid, status) {
+  if (!uid || !status) return;
+  try {
+    await db.ref('users/' + uid + '/card').update({ status, updatedAt: Date.now() });
+    if (typeof pushAdminLog === 'function') {
+      pushAdminLog({ type: 'card_status', userId: uid, to: status });
+    }
+    showToast('Cartão: ' + (typeof cardStatusLabel === 'function' ? cardStatusLabel(status) : status));
+    renderAdminMesa();
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao alterar cartão.', 'error');
+  }
+}
 
 /* ---------- IA (Gemini) ---------- */
 

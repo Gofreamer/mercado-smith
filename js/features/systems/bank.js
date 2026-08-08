@@ -55,6 +55,34 @@ function cardStatusClass(status) {
   })[status] || 'status-transit';
 }
 
+function loanStatusLabel(status) {
+  return ({
+    pending: 'Em análise',
+    active: 'Ativo',
+    paid: 'Quitado',
+    rejected: 'Recusado',
+    cancelled: 'Cancelado'
+  })[status] || status;
+}
+
+function loanStatusClass(status) {
+  return ({
+    pending: 'status-held',
+    active: 'status-transit',
+    paid: 'status-delivered',
+    rejected: 'status-lost',
+    cancelled: 'status-lost'
+  })[status] || 'status-held';
+}
+
+function setRpSpendAmount(v) {
+  const el = document.getElementById('rp-spend-amount');
+  if (el) {
+    el.value = v;
+    el.focus();
+  }
+}
+
 async function pushLedgerEntry(uid, entry) {
   if (!uid) return;
   try {
@@ -164,8 +192,13 @@ function renderBank() {
 
         <div class="bank-card-meta">
           <span class="status-pill ${cardStatusClass(cardStatus)}">${cardStatusLabel(cardStatus)}</span>
-          ${benefit ? `<span class="bank-benefit">✦ ${escapeHTML(benefit)}</span>` : ''}
         </div>
+        ${benefit ? `
+          <div class="bank-benefit-card">
+            <div class="bank-benefit-label">Benefício do cartão</div>
+            <div class="bank-benefit-text">✦ ${escapeHTML(benefit)}</div>
+          </div>
+        ` : ''}
 
         <div class="bank-stats">
           <div class="bank-stat">
@@ -186,7 +219,8 @@ function renderBank() {
           <h3>Extrato</h3>
           ${ledger.length === 0 ? `
             <div class="empty-state" style="padding:20px 0">
-              <p>Nenhum movimento ainda. Compras, gastos no cartão, reembolsos e créditos do núcleo aparecem aqui.</p>
+              <p>Conta quieta. Compras, gastos no cartão e créditos do núcleo aparecem aqui.</p>
+              <button class="btn btn-ghost btn-sm" onclick="showView('market')">Explorar o catálogo</button>
             </div>
           ` : `
             <div class="ledger-list">
@@ -226,6 +260,12 @@ function renderBank() {
               </div>
               <div class="form-group">
                 <label>Valor ($)</label>
+                <div class="rp-amount-chips">
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="setRpSpendAmount(50)">$ 50</button>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="setRpSpendAmount(100)">$ 100</button>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="setRpSpendAmount(500)">$ 500</button>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="setRpSpendAmount(1000)">$ 1.000</button>
+                </div>
                 <input type="number" id="rp-spend-amount" required min="0.01" step="0.01" placeholder="Ex: 150"/>
               </div>
               <div class="form-group">
@@ -279,7 +319,7 @@ function renderBank() {
               ${loans.slice(0, 8).map(l => `
                 <div class="loan-hist-row">
                   <span>${formatMoney(l.amount)}</span>
-                  <span class="status-pill ${l.status === 'active' ? 'status-transit' : l.status === 'paid' ? 'status-delivered' : l.status === 'rejected' ? 'status-lost' : 'status-held'}">${escapeHTML(l.status)}</span>
+                  <span class="status-pill ${loanStatusClass(l.status)}">${escapeHTML(loanStatusLabel(l.status))}</span>
                 </div>
               `).join('')}
             </div>
@@ -355,7 +395,7 @@ async function cardRpSpend(e) {
       amount,
       productName: desc
     });
-    showToast(`Cartão: −${formatMoney(amount)} · ${desc}`);
+    showToast(`Débito no cartão · ${desc} · −${formatMoney(amount)}`);
   } catch (err) {
     console.error(err);
     showToast('Erro ao debitar.', 'error');
@@ -490,7 +530,7 @@ function renderAdminLoans() {
           <td>${escapeHTML(l.userName || '')}</td>
           <td class="mono">${formatMoney(l.amount)}</td>
           <td style="font-size:12px;max-width:180px">${escapeHTML(l.reason || '—')}</td>
-          <td>${escapeHTML(l.status)}</td>
+          <td><span class="status-pill ${loanStatusClass(l.status)}">${escapeHTML(loanStatusLabel(l.status))}</span></td>
           <td class="admin-actions-cell">
             ${l.status === 'pending' ? `
               <button class="btn btn-primary btn-sm" onclick="adminResolveLoan('${l.id}','approve')">Aprovar</button>
