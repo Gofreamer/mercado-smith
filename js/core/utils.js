@@ -257,7 +257,8 @@ function getRepStats(profile, orders) {
   // Fonte da verdade: pedidos entregues + contadores gravados (pega o maior, evita rank travado)
   const list = (orders || []).filter(o => (o.status || 'delivered') === 'delivered');
   const computedSpent = list.reduce((s, o) => s + (Number(o.price) || 0), 0);
-  const computedCount = list.length;
+  // quantidade no pedido conta: ×4 no carrinho = 4 para o rank
+  const computedCount = list.reduce((s, o) => s + Math.max(1, Number(o.quantity) || 1), 0);
 
   let spent = Number(profile?.repSpent);
   let count = Number(profile?.repOrders);

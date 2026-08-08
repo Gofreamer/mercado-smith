@@ -391,8 +391,9 @@ async function adminMarkDelivered(orderId) {
 
     const uSnap = await db.ref('users/' + order.userId).once('value');
     const u = uSnap.val() || {};
+    const qtyRep = Math.max(1, Number(order.quantity) || 1);
     updates[`users/${order.userId}/repSpent`] = (Number(u.repSpent) || 0) + (Number(order.price) || 0);
-    updates[`users/${order.userId}/repOrders`] = (Number(u.repOrders) || 0) + 1;
+    updates[`users/${order.userId}/repOrders`] = (Number(u.repOrders) || 0) + qtyRep;
 
     await db.ref().update(updates);
     showToast('Pedido marcado como entregue!');
@@ -1339,12 +1340,13 @@ async function adminSetOrderStatus(orderId, newStatus) {
       }
     });
 
-    // reputação: só soma ao virar delivered (e ainda não tinha)
+    // reputação: só soma ao virar delivered (qty conta como N pedidos)
     if (newStatus === 'delivered' && prev !== 'delivered') {
       const uSnap = await db.ref('users/' + order.userId).once('value');
       const u = uSnap.val() || {};
+      const qtyRep = Math.max(1, Number(order.quantity) || 1);
       updates[`users/${order.userId}/repSpent`] = (Number(u.repSpent) || 0) + (Number(order.price) || 0);
-      updates[`users/${order.userId}/repOrders`] = (Number(u.repOrders) || 0) + 1;
+      updates[`users/${order.userId}/repOrders`] = (Number(u.repOrders) || 0) + qtyRep;
     }
 
     await db.ref().update(updates);
@@ -1571,10 +1573,12 @@ function renderAdminPlayers() {
         </thead>
         <tbody>
           ${users.map(u => {
-            const rank = getUserRank(u, null);
+            const userOrders = (state.allOrders || []).filter(o => o.userId === u.id);
+            const stats = getRepStats(u, userOrders);
+            const rank = getUserRank(u, userOrders);
             const invCount = Object.keys(u.inventory || {}).length;
-            const spent = Number(u.repSpent) || 0;
-            const orders = Number(u.repOrders) || 0;
+            const spent = stats.spent;
+            const orders = stats.orders;
             return `
               <tr>
                 <td>

@@ -408,10 +408,11 @@ async function executePurchase(lines) {
     if (delivery.status === 'delivered') {
       const prevSpent = Number(state.profile.repSpent) || 0;
       const prevOrders = Number(state.profile.repOrders) || 0;
+      const qtyRep = Math.max(1, Number(line.qty) || 1);
       updates[`users/${uid}/repSpent`] = prevSpent + lineTotal;
-      updates[`users/${uid}/repOrders`] = prevOrders + 1;
+      updates[`users/${uid}/repOrders`] = prevOrders + qtyRep;
       state.profile.repSpent = prevSpent + lineTotal;
-      state.profile.repOrders = prevOrders + 1;
+      state.profile.repOrders = prevOrders + qtyRep;
     }
   }
 
