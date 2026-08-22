@@ -247,9 +247,17 @@ async function buyProduct(productId) {
     : { discount: 0, final: listPrice, pct: 0 };
   const price = discInfo.final;
   const balance = Number(state.profile.balance) || 0;
+  const afterBuy = balance - price;
+  const floor = typeof BALANCE_FLOOR === 'number' ? BALANCE_FLOOR : -200000;
 
-  if (balance < price) {
-    showToast('Saldo insuficiente.', 'error');
+  if (afterBuy < floor) {
+    const room = balance - floor;
+    showToast(
+      room <= 0
+        ? `Limite de crédito esgotado (−${formatMoney(Math.abs(floor))}).`
+        : `Acima do limite. Você pode gastar até ${formatMoney(room)}.`,
+      'error'
+    );
     return;
   }
   if (product.stock !== null && product.stock !== undefined && product.stock <= 0) {
@@ -340,8 +348,16 @@ async function executePurchase(lines) {
 
   const payTotal = Math.max(0, total - discount);
   const balance = Number(state.profile.balance) || 0;
-  if (balance < payTotal) {
-    showToast(`Saldo insuficiente. Faltam ${formatMoney(payTotal - balance)}.`, 'error');
+  const afterPay = balance - payTotal;
+  const floorPay = typeof BALANCE_FLOOR === 'number' ? BALANCE_FLOOR : -200000;
+  if (afterPay < floorPay) {
+    const room = balance - floorPay;
+    showToast(
+      room <= 0
+        ? `Limite de crédito esgotado (−${formatMoney(Math.abs(floorPay))}).`
+        : `Acima do limite. Você pode gastar até ${formatMoney(room)}.`,
+      'error'
+    );
     return false;
   }
 

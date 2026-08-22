@@ -303,9 +303,17 @@ async function checkoutCart() {
   const pay = getCartPayable();
   const balance = Number(state.profile?.balance) || 0;
   const payTotal = pay.total;
+  const afterPay = balance - payTotal;
+  const floor = typeof BALANCE_FLOOR === 'number' ? BALANCE_FLOOR : -200000;
 
-  if (balance < payTotal) {
-    showToast(`Saldo insuficiente. Faltam ${formatMoney(payTotal - balance)}.`, 'error');
+  if (afterPay < floor) {
+    const room = balance - floor;
+    showToast(
+      room <= 0
+        ? `Limite de crédito esgotado (−${formatMoney(Math.abs(floor))}).`
+        : `Acima do limite. Você pode gastar até ${formatMoney(room)}.`,
+      'error'
+    );
     return;
   }
 
@@ -317,7 +325,7 @@ async function checkoutCart() {
   if (pay.couponDiscount > 0) rows.push({ label: 'Cupom', value: `− ${formatMoney(pay.couponDiscount)}`, success: true });
   rows.push(
     { label: 'Total', value: formatMoney(payTotal), success: true },
-    { label: 'Saldo após', value: formatMoney(balance - payTotal) }
+    { label: 'Saldo após', value: formatMoney(afterPay), warn: afterPay < 0 }
   );
 
   const ok = await gsConfirm({

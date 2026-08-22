@@ -1,5 +1,8 @@
 /* Global Smith — Banco + Cartão RP + Extrato + Gasto RP + Empréstimo + Admin cartão */
 
+/** Saldo mínimo permitido (negativo até este valor). */
+const BALANCE_FLOOR = -200000;
+
 const RP_SPEND_CATEGORIES = {
   transporte: 'Transporte',
   entrada: 'Entrada / acesso',
@@ -11,6 +14,18 @@ const RP_SPEND_CATEGORIES = {
   transferencia: 'Transferência',
   outros: 'Outros'
 };
+
+function balanceFloorLabel() {
+  return formatMoney(Math.abs(BALANCE_FLOOR));
+}
+
+/** Retorna null se ok, ou mensagem de erro se ultrapassar o piso. */
+function validateBalanceFloor(newBal) {
+  if (newBal < BALANCE_FLOOR) {
+    return `Limite de crédito estourado. Mínimo permitido: −${balanceFloorLabel()}.`;
+  }
+  return null;
+}
 
 function getCardNumber(uid) {
   if (!uid) return '•••• •••• •••• ••••';
@@ -274,8 +289,8 @@ function renderBank() {
 
         <div class="bank-stats">
           <div class="bank-stat">
-            <div class="bank-stat-label">Saldo disponível</div>
-            <div class="bank-stat-value success">${formatMoney(balance)}</div>
+            <div class="bank-stat-label">Saldo disponível${balance < 0 ? ' (no crédito)' : ''}</div>
+            <div class="bank-stat-value ${balance < 0 ? 'warning' : 'success'}">${formatMoney(balance)}</div>
           </div>
           <div class="bank-stat">
             <div class="bank-stat-label">Em dívida</div>
@@ -399,7 +414,7 @@ function renderBank() {
         </div>
 
         <div class="bank-panel bank-panel-muted">
-          <p class="bank-footnote">Cartão RP · gastos fora do mercado debitam o mesmo saldo. Status, benefício permanente e assinaturas (com prazo) são controlados pelo núcleo GS (admin).</p>
+          <p class="bank-footnote">Cartão RP · gastos debitam o saldo (pode ficar negativo até −${typeof balanceFloorLabel === 'function' ? balanceFloorLabel() : '200.000'}). Status, benefício e assinaturas são do núcleo GS.</p>
         </div>
       </div>
     </div>
@@ -430,21 +445,32 @@ async function cardRpSpend(e) {
   }
 
   const bal = Number(state.profile.balance) || 0;
-  if (amount > bal) {
-    showToast(`Saldo insuficiente. Disponível: ${formatMoney(bal)}.`, 'error');
+  const newBal = bal - amount;
+  const floorErr = validateBalanceFloor(newBal);
+  if (floorErr) {
+    const room = bal - BALANCE_FLOOR;
+    showToast(
+      room <= 0
+        ? `Limite de crédito esgotado (−${balanceFloorLabel()}). Fale com o núcleo GS.`
+        : `Acima do limite. Você pode gastar até ${formatMoney(room)} (piso −${balanceFloorLabel()}).`,
+      'error'
+    );
     return;
   }
 
   const catLabel = RP_SPEND_CATEGORIES[category] || category;
+  const goesNegative = newBal < 0;
   const okSpend = await gsConfirm({
-    title: 'Débito no cartão',
-    body: `Debitar <strong>${formatMoney(amount)}</strong>?<br>${escapeHTML(catLabel)} — ${escapeHTML(desc)}`,
-    confirmLabel: 'Debitar',
+    title: goesNegative ? 'Débito no cartão (saldo negativo)' : 'Débito no cartão',
+    body: `Debitar <strong>${formatMoney(amount)}</strong>?<br>${escapeHTML(catLabel)} — ${escapeHTML(desc)}${
+      goesNegative
+        ? `<br><br><span class="text-danger">Saldo ficará em ${formatMoney(newBal)} (limite −${balanceFloorLabel()}).</span>`
+        : ''
+    }`,
+    confirmLabel: goesNegative ? 'Debitar no crédito' : 'Debitar',
     danger: true
   });
   if (!okSpend) return;
-
-  const newBal = bal - amount;
   const uid = state.user.uid;
   const ledgerKey = generateId();
 
@@ -555,11 +581,18 @@ async function payLoan(loanId) {
     showToast('Valor maior que a dívida.', 'error');
     return;
   }
-  if (amount > bal) {
-    showToast('Saldo insuficiente.', 'error');
+  const newBal = bal - amount;
+  const floorErrPay = validateBalanceFloor(newBal);
+  if (floorErrPay) {
+    const room = bal - BALANCE_FLOOR;
+    showToast(
+      room <= 0
+        ? `Limite de crédito esgotado (−${balanceFloorLabel()}).`
+        : `Acima do limite. Você pode pagar até ${formatMoney(room)}.`,
+      'error'
+    );
     return;
   }
-  const newBal = bal - amount;
   const newDebt = debt - amount;
   const paid = newDebt <= 0.001;
   try {
@@ -715,8 +748,9 @@ async function adminLoadCardInfo() {
       <div class="admin-card-preview-inner">
         <div><strong>${escapeHTML(u.name || '')}</strong> · ${escapeHTML(u.email || '')}</div>
         <div class="mono" style="font-size:12px;margin-top:4px">${getCardNumber(uid)}</div>
-        <div style="margin-top:6px">Saldo: <strong class="success">${formatMoney(u.balance)}</strong>
+        <div style="margin-top:6px">Saldo: <strong class="${Number(u.balance) < 0 ? 'warning' : 'success'}">${formatMoney(u.balance)}</strong>
           · <span class="status-pill ${cardStatusClass(status)}">${cardStatusLabel(status)}</span>
+          ${Number(u.balance) < 0 ? ` · <span class="text-muted" style="font-size:11px">piso −${balanceFloorLabel()}</span>` : ''}
         </div>
         ${benefit ? `<div style="margin-top:6px;font-size:12px">Benefício: <em>${escapeHTML(benefit)}</em></div>` : ''}
         <div style="margin-top:4px;font-size:12px;color:var(--text-muted)">Assinaturas ativas: ${activeSubs.length} · total registradas: ${allSubs.length}</div>
@@ -812,8 +846,9 @@ async function adminCardCredit(e) {
     const snap = await db.ref(`users/${uid}/balance`).once('value');
     const bal = Number(snap.val()) || 0;
     const newBal = bal + amount;
-    if (newBal < 0) {
-      showToast('Saldo ficaria negativo.', 'error');
+    const floorErr = validateBalanceFloor(newBal);
+    if (floorErr) {
+      showToast(floorErr, 'error');
       return;
     }
     const updates = {};
@@ -829,7 +864,10 @@ async function adminCardCredit(e) {
     };
     await db.ref().update(updates);
     pushAdminLog({ type: amount > 0 ? 'card_benefit' : 'card_debit', userId: uid, amount });
-    showToast(amount > 0 ? `Benefício de ${formatMoney(amount)} creditado.` : `Débito de ${formatMoney(Math.abs(amount))} aplicado.`);
+    const msg = amount > 0
+      ? `Benefício de ${formatMoney(amount)} creditado.`
+      : `Débito de ${formatMoney(Math.abs(amount))} aplicado${newBal < 0 ? ' · saldo ' + formatMoney(newBal) : ''}.`;
+    showToast(msg);
     document.getElementById('admin-card-credit-amount').value = '';
     document.getElementById('admin-card-credit-note').value = '';
     adminLoadCardInfo();

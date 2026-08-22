@@ -461,6 +461,17 @@ async function adminAdjustBalance(e) {
     return;
   }
 
+  if (typeof validateBalanceFloor === 'function') {
+    const floorErr = validateBalanceFloor(newBalance);
+    if (floorErr) {
+      showToast(floorErr, 'error');
+      return;
+    }
+  } else if (newBalance < -200000) {
+    showToast('Limite de crédito estourado. Mínimo permitido: −$ 200.000,00.', 'error');
+    return;
+  }
+
   try {
     let uid = input;
 
@@ -652,6 +663,16 @@ async function mesaQuickBalance(uid, delta, label) {
     const snap = await db.ref('users/' + uid + '/balance').once('value');
     const prev = Number(snap.val()) || 0;
     const next = prev + Number(delta);
+    if (typeof validateBalanceFloor === 'function') {
+      const floorErr = validateBalanceFloor(next);
+      if (floorErr) {
+        showToast(floorErr, 'error');
+        return;
+      }
+    } else if (next < -200000) {
+      showToast('Limite de crédito estourado. Mínimo permitido: −$ 200.000,00.', 'error');
+      return;
+    }
     await db.ref('users/' + uid + '/balance').set(next);
     if (typeof pushLedgerEntry === 'function') {
       await pushLedgerEntry(uid, {
