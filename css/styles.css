@@ -3317,6 +3317,70 @@ body.theme-blackmarket .brand {
   color: #6ee7b7;
   font-weight: 600;
 }
+.bank-subs-card {
+  margin: 10px 0 4px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0f172a 0%, #1a1a2e 100%);
+  border: 1px solid #818cf844;
+}
+.bank-subs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+.bank-sub-item {
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(129, 140, 248, 0.15);
+}
+.bank-sub-item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+.bank-sub-name {
+  font-size: 13px;
+  color: #a5b4fc;
+  font-weight: 600;
+}
+.bank-sub-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.bank-sub-expiry {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.admin-subs-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.admin-sub-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+}
+.admin-sub-row.admin-sub-expired {
+  opacity: 0.65;
+}
+.admin-sub-info {
+  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+}
+.admin-sub-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
 .rp-amount-chips {
   display: flex;
   flex-wrap: wrap;

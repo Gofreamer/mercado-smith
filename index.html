@@ -439,7 +439,7 @@
           <div class="admin-layout">
             <div class="admin-card">
               <h3>Gerir cartão do jogador</h3>
-              <p class="text-muted admin-hint">Busque por UID ou e-mail. Altere titular, benefício, status; credite ou debite.</p>
+              <p class="text-muted admin-hint">Busque por UID ou e-mail. Altere titular, benefício permanente, status; credite ou debite.</p>
               <div class="form-group">
                 <label>UID ou E-mail</label>
                 <div style="display:flex;gap:8px">
@@ -455,8 +455,9 @@
                   <input type="text" id="admin-card-holder" maxlength="60" placeholder="Nome RP do titular"/>
                 </div>
                 <div class="form-group">
-                  <label>Benefício / privilege</label>
-                  <input type="text" id="admin-card-benefit" maxlength="160" placeholder="Ex: 10% off transporte · acesso VIP portão B"/>
+                  <label>Benefício permanente</label>
+                  <input type="text" id="admin-card-benefit" maxlength="160" placeholder="Ex: acesso VIP portão B · desconto fixo em transporte"/>
+                  <p class="text-muted" style="font-size:11px;margin-top:4px">Privilege fixo do cartão. Use assinaturas abaixo para benefícios com prazo (ex.: 30 dias).</p>
                 </div>
                 <div class="form-group">
                   <label>Status</label>
@@ -466,7 +467,10 @@
                     <option value="cancelled">Cancelado</option>
                   </select>
                 </div>
-                <button type="submit" class="btn btn-primary">Salvar cartão</button>
+                <div style="display:flex;flex-wrap:wrap;gap:8px">
+                  <button type="submit" class="btn btn-primary">Salvar cartão</button>
+                  <button type="button" class="btn btn-ghost btn-sm text-danger" onclick="adminClearBenefit()">Apagar benefício</button>
+                </div>
               </form>
               <div class="admin-card-actions" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
                 <button type="button" class="btn btn-ghost btn-sm" onclick="adminSetCardStatus('active')">Reativar</button>
@@ -475,8 +479,45 @@
               </div>
             </div>
             <div class="admin-card">
+              <h3>Assinaturas do cartão</h3>
+              <p class="text-muted admin-hint">Benefícios temporários separados do privilege permanente. Por padrão o tempo é o do RPG: você remove quando os X dias in-world acabarem. Opcional: usar relógio real pra auto-expirar.</p>
+              <form onsubmit="adminAddSubscription(event)">
+                <div class="form-group">
+                  <label>Nome da assinatura</label>
+                  <input type="text" id="admin-sub-name" maxlength="80" required placeholder="Ex: Plano VIP 30 dias · Seguro carga"/>
+                </div>
+                <div class="form-group">
+                  <label>Descrição (opcional)</label>
+                  <input type="text" id="admin-sub-desc" maxlength="160" placeholder="O que a assinatura cobre"/>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Duração (dias)</label>
+                    <input type="number" id="admin-sub-days" min="1" max="3650" value="30" required placeholder="30"/>
+                  </div>
+                  <div class="form-group">
+                    <label>Relógio</label>
+                    <select id="admin-sub-use-real">
+                      <option value="false" selected>Calendário do RPG (mesa controla)</option>
+                      <option value="true">Relógio real (auto-expira)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Fim in-world (texto, opcional)</label>
+                  <input type="text" id="admin-sub-ends-label" maxlength="80" placeholder="Ex: até 21 de Brumário, Ano 3"/>
+                </div>
+                <button type="submit" class="btn btn-primary">Adicionar assinatura</button>
+              </form>
+              <hr style="border:none;border-top:1px solid var(--border);margin:16px 0"/>
+              <h4 style="margin:0 0 8px;font-size:13px">Assinaturas deste cartão</h4>
+              <div id="admin-subs-list">
+                <p class="text-muted" style="font-size:13px">Carregue um jogador para ver assinaturas.</p>
+              </div>
+            </div>
+            <div class="admin-card">
               <h3>Lançamento no cartão</h3>
-              <p class="text-muted admin-hint">Positivo = benefício/crédito. Negativo = débito forçado (gasto RP pela mesa).</p>
+              <p class="text-muted admin-hint">Positivo = crédito no saldo. Negativo = débito forçado (gasto RP pela mesa).</p>
               <form onsubmit="adminCardCredit(event)">
                 <div class="form-group">
                   <label>Valor ($)</label>

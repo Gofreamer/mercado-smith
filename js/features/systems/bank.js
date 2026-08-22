@@ -43,6 +43,63 @@ function getCardBenefit(profile) {
   return (profile?.card?.benefit || '').trim();
 }
 
+function isSubscriptionActive(s, now = Date.now()) {
+  if (!s) return false;
+  // Controle manual (calendário do RPG): fica ativa até o admin remover
+  if (!s.useRealSchedule) return true;
+  // Relógio real: respeita expiresAt
+  if (s.expiresAt && Number(s.expiresAt) <= now) return false;
+  return true;
+}
+
+function getCardSubscriptions(profile) {
+  const subs = profile?.card?.subscriptions || {};
+  const now = Date.now();
+  return Object.entries(subs)
+    .map(([id, s]) => ({ id, ...s }))
+    .filter(s => isSubscriptionActive(s, now))
+    .sort((a, b) => {
+      // Manuais primeiro; depois as que vencem mais cedo
+      if (!a.useRealSchedule && b.useRealSchedule) return -1;
+      if (a.useRealSchedule && !b.useRealSchedule) return 1;
+      return (a.expiresAt || 0) - (b.expiresAt || 0);
+    });
+}
+
+function getAllCardSubscriptions(profile) {
+  const subs = profile?.card?.subscriptions || {};
+  return Object.entries(subs)
+    .map(([id, s]) => ({ id, ...s }))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+function formatSubExpiry(s) {
+  if (!s) return '';
+  // Texto in-world tem prioridade na exibição
+  if (s.endsLabel) {
+    const base = s.endsLabel;
+    if (s.useRealSchedule && s.expiresAt) {
+      return `${base} · ${formatSubRealExpiry(s.expiresAt)}`;
+    }
+    return s.days ? `${base} · ${s.days} dia${s.days > 1 ? 's' : ''} (mesa)` : base;
+  }
+  if (s.useRealSchedule && s.expiresAt) return formatSubRealExpiry(s.expiresAt);
+  if (s.days) return `${s.days} dia${s.days > 1 ? 's' : ''} · controle da mesa (calendário RPG)`;
+  return 'Sem prazo · controle da mesa';
+}
+
+function formatSubRealExpiry(ts) {
+  if (!ts) return 'Sem prazo';
+  const d = new Date(ts);
+  const now = Date.now();
+  const days = Math.ceil((ts - now) / 86400000);
+  const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  if (days < 0) return `Expirou ${dateStr}`;
+  if (days === 0) return `Expira hoje (${dateStr})`;
+  if (days === 1) return `Expira amanhã (${dateStr})`;
+  return `${days} dias reais · até ${dateStr}`;
+}
+
 function cardStatusLabel(status) {
   return ({ active: 'Ativo', suspended: 'Suspenso', cancelled: 'Cancelado' })[status] || status;
 }
@@ -154,6 +211,7 @@ function renderBank() {
   const cardStatus = getCardStatus(state.profile);
   const holder = getCardHolder(state.profile);
   const benefit = getCardBenefit(state.profile);
+  const subscriptions = getCardSubscriptions(state.profile);
   const ledger = getLedgerEntries().slice(0, 40);
   const loans = getLoans();
   const activeLoan = loans.find(l => l.status === 'active');
@@ -195,8 +253,22 @@ function renderBank() {
         </div>
         ${benefit ? `
           <div class="bank-benefit-card">
-            <div class="bank-benefit-label">Benefício do cartão</div>
+            <div class="bank-benefit-label">Benefício permanente</div>
             <div class="bank-benefit-text">✦ ${escapeHTML(benefit)}</div>
+          </div>
+        ` : ''}
+        ${subscriptions.length ? `
+          <div class="bank-subs-card">
+            <div class="bank-benefit-label">Assinaturas ativas</div>
+            <div class="bank-subs-list">
+              ${subscriptions.map(s => `
+                <div class="bank-sub-item">
+                  <div class="bank-sub-name">◆ ${escapeHTML(s.name || 'Assinatura')}</div>
+                  ${s.description ? `<div class="bank-sub-desc">${escapeHTML(s.description)}</div>` : ''}
+                  <div class="bank-sub-expiry">${escapeHTML(formatSubExpiry(s))}</div>
+                </div>
+              `).join('')}
+            </div>
           </div>
         ` : ''}
 
@@ -327,7 +399,7 @@ function renderBank() {
         </div>
 
         <div class="bank-panel bank-panel-muted">
-          <p class="bank-footnote">Cartão RP · gastos fora do mercado debitam o mesmo saldo. Status e benefícios são controlados pelo núcleo GS (admin).</p>
+          <p class="bank-footnote">Cartão RP · gastos fora do mercado debitam o mesmo saldo. Status, benefício permanente e assinaturas (com prazo) são controlados pelo núcleo GS (admin).</p>
         </div>
       </div>
     </div>
@@ -620,12 +692,14 @@ async function adminLoadCardInfo() {
     const uid = await adminResolveUserRef(input);
     if (!uid) {
       box.innerHTML = '<p class="text-muted">Usuário não encontrado.</p>';
+      renderAdminSubsList(null);
       return;
     }
     const snap = await db.ref('users/' + uid).once('value');
     const u = snap.val();
     if (!u) {
       box.innerHTML = '<p class="text-muted">Usuário não encontrado.</p>';
+      renderAdminSubsList(null);
       return;
     }
     const status = u.card?.status || 'active';
@@ -635,6 +709,8 @@ async function adminLoadCardInfo() {
     document.getElementById('admin-card-holder').value = holder;
     document.getElementById('admin-card-benefit').value = benefit;
     document.getElementById('admin-card-status').value = status;
+    const activeSubs = getCardSubscriptions(u);
+    const allSubs = getAllCardSubscriptions(u);
     box.innerHTML = `
       <div class="admin-card-preview-inner">
         <div><strong>${escapeHTML(u.name || '')}</strong> · ${escapeHTML(u.email || '')}</div>
@@ -642,12 +718,49 @@ async function adminLoadCardInfo() {
         <div style="margin-top:6px">Saldo: <strong class="success">${formatMoney(u.balance)}</strong>
           · <span class="status-pill ${cardStatusClass(status)}">${cardStatusLabel(status)}</span>
         </div>
+        ${benefit ? `<div style="margin-top:6px;font-size:12px">Benefício: <em>${escapeHTML(benefit)}</em></div>` : ''}
+        <div style="margin-top:4px;font-size:12px;color:var(--text-muted)">Assinaturas ativas: ${activeSubs.length} · total registradas: ${allSubs.length}</div>
       </div>
     `;
+    renderAdminSubsList(u);
   } catch (e) {
     console.error(e);
     box.innerHTML = '<p class="text-danger">Erro ao carregar.</p>';
+    renderAdminSubsList(null);
   }
+}
+
+function renderAdminSubsList(userOrNull) {
+  const el = document.getElementById('admin-subs-list');
+  if (!el) return;
+  if (!userOrNull) {
+    el.innerHTML = '<p class="text-muted" style="font-size:13px">Carregue um jogador para ver assinaturas.</p>';
+    return;
+  }
+  const all = getAllCardSubscriptions(userOrNull);
+  const now = Date.now();
+  if (!all.length) {
+    el.innerHTML = '<p class="text-muted" style="font-size:13px">Nenhuma assinatura neste cartão.</p>';
+    return;
+  }
+  el.innerHTML = `
+    <div class="admin-subs-table">
+      ${all.map(s => {
+        const active = isSubscriptionActive(s, now);
+        const mode = s.useRealSchedule ? 'relógio real' : 'calendário RPG (mesa)';
+        return `
+          <div class="admin-sub-row ${active ? '' : 'admin-sub-expired'}">
+            <div class="admin-sub-info">
+              <strong>${escapeHTML(s.name || 'Assinatura')}</strong>
+              ${s.description ? `<span class="text-muted"> · ${escapeHTML(s.description)}</span>` : ''}
+              <div class="admin-sub-meta">${escapeHTML(formatSubExpiry(s))} · ${mode}${active ? '' : ' · <span class="text-danger">inativa</span>'}</div>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm text-danger" onclick="adminRemoveSubscription('${s.id}')" title="Remover">Remover</button>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 async function adminSaveCard(e) {
@@ -753,5 +866,119 @@ async function adminSetCardStatus(status) {
   } catch (e) {
     console.error(e);
     showToast('Erro ao alterar status.', 'error');
+  }
+}
+
+async function adminClearBenefit() {
+  const uid = document.getElementById('admin-card-uid')?.value?.trim();
+  if (!uid) {
+    showToast('Carregue um jogador primeiro.', 'error');
+    return;
+  }
+  const ok = await gsConfirm({
+    title: 'Remover benefício',
+    body: 'Apagar o benefício permanente deste cartão? (Assinaturas não são afetadas.)',
+    confirmLabel: 'Remover benefício',
+    danger: true
+  });
+  if (!ok) return;
+  try {
+    await db.ref(`users/${uid}/card`).update({
+      benefit: null,
+      updatedAt: Date.now()
+    });
+    const benefitInput = document.getElementById('admin-card-benefit');
+    if (benefitInput) benefitInput.value = '';
+    pushAdminLog({ type: 'card_benefit_clear', userId: uid });
+    showToast('Benefício removido.');
+    adminLoadCardInfo();
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao remover benefício.', 'error');
+  }
+}
+
+async function adminAddSubscription(e) {
+  e.preventDefault();
+  const uid = document.getElementById('admin-card-uid')?.value?.trim();
+  if (!uid) {
+    showToast('Carregue um jogador primeiro.', 'error');
+    return;
+  }
+  const name = (document.getElementById('admin-sub-name')?.value || '').trim().slice(0, 80);
+  const description = (document.getElementById('admin-sub-desc')?.value || '').trim().slice(0, 160);
+  const days = parseInt(document.getElementById('admin-sub-days')?.value, 10);
+  const endsLabel = (document.getElementById('admin-sub-ends-label')?.value || '').trim().slice(0, 80);
+  const useRealSchedule = document.getElementById('admin-sub-use-real')?.value === 'true';
+  if (!name) {
+    showToast('Informe o nome da assinatura.', 'error');
+    return;
+  }
+  if (isNaN(days) || days < 1) {
+    showToast('Duração mínima: 1 dia.', 'error');
+    return;
+  }
+  const now = Date.now();
+  const expiresAt = useRealSchedule ? now + days * 86400000 : null;
+  const sid = generateId();
+  try {
+    await db.ref(`users/${uid}/card/subscriptions/${sid}`).set({
+      name,
+      description: description || null,
+      startsAt: now,
+      expiresAt,
+      endsLabel: endsLabel || null,
+      useRealSchedule: !!useRealSchedule,
+      createdAt: now,
+      days
+    });
+    await db.ref(`users/${uid}/card`).update({ updatedAt: now });
+    pushAdminLog({
+      type: 'card_subscription_add',
+      userId: uid,
+      productName: name,
+      amount: days
+    });
+    const modeMsg = useRealSchedule
+      ? `${days} dia${days > 1 ? 's' : ''} reais (auto-expira)`
+      : `${days} dia${days > 1 ? 's' : ''} no calendário RPG (você remove quando acabar)`;
+    showToast(`Assinatura "${name}" adicionada · ${modeMsg}.`);
+    const nameEl = document.getElementById('admin-sub-name');
+    const descEl = document.getElementById('admin-sub-desc');
+    const daysEl = document.getElementById('admin-sub-days');
+    const labelEl = document.getElementById('admin-sub-ends-label');
+    if (nameEl) nameEl.value = '';
+    if (descEl) descEl.value = '';
+    if (daysEl) daysEl.value = '30';
+    if (labelEl) labelEl.value = '';
+    adminLoadCardInfo();
+  } catch (err) {
+    console.error(err);
+    showToast('Erro ao adicionar assinatura.', 'error');
+  }
+}
+
+async function adminRemoveSubscription(subId) {
+  const uid = document.getElementById('admin-card-uid')?.value?.trim();
+  if (!uid || !subId) {
+    showToast('Carregue um jogador primeiro.', 'error');
+    return;
+  }
+  const ok = await gsConfirm({
+    title: 'Remover assinatura',
+    body: 'Remover esta assinatura do cartão do jogador?',
+    confirmLabel: 'Remover',
+    danger: true
+  });
+  if (!ok) return;
+  try {
+    await db.ref(`users/${uid}/card/subscriptions/${subId}`).remove();
+    await db.ref(`users/${uid}/card`).update({ updatedAt: Date.now() });
+    pushAdminLog({ type: 'card_subscription_remove', userId: uid, productName: subId });
+    showToast('Assinatura removida.');
+    adminLoadCardInfo();
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao remover assinatura.', 'error');
   }
 }
