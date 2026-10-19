@@ -55,7 +55,7 @@ function getFirebaseAIErrorMessage(err) {
 async function jetStyleGenerate(prompt, modelName = "gemini-3.6-flash") {
   const app = getAIApp();
   // Valida o App Check antes de enviar o pedido ou tentar outros modelos.
-  await getToken(aiAppCheck);
+  await getToken(aiAppCheck, true);
   const ai = getAI(app, { backend: new GoogleAIBackend() });
   const candidates = [modelName, "gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash"];
   const tried = new Set();
@@ -65,6 +65,7 @@ async function jetStyleGenerate(prompt, modelName = "gemini-3.6-flash") {
     tried.add(m);
     try {
       const model = getGenerativeModel(ai, { model: m });
+      console.info("[gsAI diagnostic]", JSON.stringify({ appCheckAttached: !!ai.appCheck, tokenCallbackAttached: typeof model._apiSettings?.getAppCheckToken === "function" }));
       const result = await model.generateContent(prompt);
       return result.response.text();
     } catch (e) {
@@ -544,4 +545,5 @@ Regras: português BR; sem emoji; cupom só se fizer sentido narrativo; cores ti
     }
   }
 };
+
 
