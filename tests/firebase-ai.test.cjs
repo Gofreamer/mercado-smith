@@ -6,7 +6,7 @@ const vm = require('node:vm');
 function harness({ failures = {}, tokenError, initError } = {}) {
   const source = fs.readFileSync(require('node:path').join(__dirname, '../js/features/admin/firebase-ai.js'), 'utf8')
     .replace(/^import .*;\r?\n/gm, '').split('const CATEGORIES')[0];
-  const calls = { init: 0, tokens: 0, models: [] };
+  const calls = { init: 0, tokens: 0, models: [], aiOptions: [] };
   const context = vm.createContext({
     console: { warn() {} },
     initializeApp: () => ({}),
@@ -14,7 +14,7 @@ function harness({ failures = {}, tokenError, initError } = {}) {
     ReCaptchaEnterpriseProvider: function(key) { assert.match(key, /^6L/); },
     getToken: async () => { calls.tokens++; if (tokenError) throw tokenError; return { token: 'mock' }; },
     GoogleAIBackend: function() {},
-    getAI: () => ({}),
+    getAI: (_app, options) => { calls.aiOptions.push(options); return {}; },
     getGenerativeModel: (_ai, { model }) => ({ generateContent: async () => {
       calls.models.push(model);
       if (failures[model]) throw new Error(failures[model]);
@@ -31,6 +31,7 @@ test('App Check valida antes da IA e inicializa apenas uma vez', async () => {
   assert.equal(await h.run(), 'ok');
   assert.equal(h.calls.init, 1);
   assert.equal(h.calls.tokens, 2);
+  assert.ok(h.calls.aiOptions.every(options => options.useLimitedUseAppCheckTokens === true));
 });
 
 test('403 do projeto interrompe fallback sem repetir chamadas', async () => {
