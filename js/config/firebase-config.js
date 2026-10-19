@@ -13,8 +13,9 @@ const firebaseConfig = {
 // Inicializa o Firebase (versão compat)
 firebase.initializeApp(firebaseConfig);
 
-// App Check NÃO é ativado no app principal (mesmo padrão do Jet League).
-// A IA usa o módulo firebase-ai.js e só liga App Check se APP_CHECK_SITE_KEY estiver preenchida.
+// O App Check da IA é inicializado no app modular gsAI em firebase-ai.js.
+// Auth e Realtime Database continuam usando este app compat.
 
 const auth = firebase.auth();
 const db = firebase.database();
+
