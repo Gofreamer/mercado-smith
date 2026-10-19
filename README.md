@@ -74,3 +74,25 @@ O app lê `users/{uid}/isAdmin === true`.
 ## Saldo inicial
 
 $ 1.000,00
+
+
+## Firebase AI Logic e App Check
+
+A IA inicializa App Check com reCAPTCHA Enterprise no app modular `gsAI`.
+A chave pública configurada pertence ao projeto `mercado-smith` e autoriza
+`mercado-smith.pages.dev`. Ela não é uma chave secreta da API Gemini.
+
+No Console Firebase, App Check → APIs → Firebase AI Logic deve estar com
+proteção básica aplicada. A proteção contra replay fica em monitoramento enquanto
+o app usa tokens de sessão. Auth e Realtime Database usam o app compat;
+a aplicação do App Check nesses serviços exige uma integração separada.
+
+Para desenvolvimento local, defina `self.FIREBASE_APPCHECK_DEBUG_TOKEN = true`
+antes de carregar o módulo da IA, registre o token exibido no Console Firebase
+(App Check → Apps → Gerenciar tokens de depuração) e mantenha o token privado.
+Não publique tokens de depuração nem adicione localhost aos domínios de produção.
+
+Ao trocar o domínio publicado, atualize a lista de domínios da chave no Google Cloud.
+Erros de App Check ou acesso ao projeto interrompem a geração sem repetir chamadas
+para todos os modelos. Erros específicos de modelo ainda permitem fallback.
+
