@@ -83,8 +83,9 @@ A chave pública configurada pertence ao projeto `mercado-smith` e autoriza
 `mercado-smith.pages.dev`. Ela não é uma chave secreta da API Gemini.
 
 No Console Firebase, App Check → APIs → Firebase AI Logic deve estar com
-proteção básica aplicada. A proteção contra replay fica em monitoramento enquanto
-o app usa tokens de sessão. Auth e Realtime Database usam o app compat;
+proteção básica aplicada. O SDK da IA usa tokens de uso único por requisição
+(`useLimitedUseAppCheckTokens: true`); a proteção contra replay está em monitoramento.
+Auth e Realtime Database usam o app compat;
 a aplicação do App Check nesses serviços exige uma integração separada.
 
 Para desenvolvimento local, defina `self.FIREBASE_APPCHECK_DEBUG_TOKEN = true`
