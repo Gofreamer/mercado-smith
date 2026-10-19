@@ -56,7 +56,7 @@ async function jetStyleGenerate(prompt, modelName = "gemini-3.6-flash") {
   const app = getAIApp();
   // Valida o App Check antes de enviar o pedido ou tentar outros modelos.
   await getToken(aiAppCheck, true);
-  const ai = getAI(app, { backend: new GoogleAIBackend() });
+  const ai = getAI(app, { backend: new GoogleAIBackend(), useLimitedUseAppCheckTokens: true });
   const candidates = [modelName, "gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash"];
   const tried = new Set();
   let lastErr;
