@@ -1,7 +1,7 @@
-/* Global Smith — Firebase AI Logic (mesmo padrão do Jet League) */
+/* Global Smith — Firebase AI Logic com App Check Enterprise */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-ai.js";
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app-check.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app-check.js";
 
 const aiFirebaseConfig = {
   apiKey: "AIzaSyCBttq3QfezqC5y2KRI4kSs5VoUnAP90Zk",
@@ -13,30 +13,50 @@ const aiFirebaseConfig = {
   appId: "1:1084544496126:web:6a3e7bdff7e246e88bd0af"
 };
 
-// Igual ao Jet League: deixe vazio para NÃO ativar App Check.
-const APP_CHECK_SITE_KEY = "";
+// Chave pública de produção, restrita a mercado-smith.pages.dev.
+const APP_CHECK_SITE_KEY = "6Lf74PUtAAAAAFhvHo68PrikYTZLoUZIg4AVZ5Jr";
 
 let aiApp = null;
-let appCheckReady = false;
+let aiAppCheck = null;
 
 function getAIApp() {
   if (!aiApp) aiApp = initializeApp(aiFirebaseConfig, "gsAI");
-  if (!appCheckReady && APP_CHECK_SITE_KEY) {
-    try {
-      initializeAppCheck(aiApp, {
-        provider: new ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY),
-        isTokenAutoRefreshEnabled: true
-      });
-    } catch (e) {
-      console.warn("App Check:", e?.message || e);
-    }
-    appCheckReady = true;
+  if (!aiAppCheck) {
+    // No localhost, o debug precisa ser ativado explicitamente antes de carregar
+    // este módulo; o token gerado deve ser cadastrado no Console Firebase.
+    aiAppCheck = initializeAppCheck(aiApp, {
+      provider: new ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY),
+      isTokenAutoRefreshEnabled: true
+    });
   }
   return aiApp;
 }
 
+function getFirebaseAIErrorMessage(err) {
+  const msg = err?.message || String(err);
+  if (/deactivated|AI Logic Project is inactive/i.test(msg)) {
+    return "Firebase AI Logic desativado no projeto. Confira se o App Check está aplicado ao Firebase AI Logic no console.";
+  }
+  if (/app.?check|recaptcha|attestation/i.test(msg)) {
+    return "Não foi possível validar o App Check. Recarregue o site; confira a chave Enterprise e o domínio autorizado. Em localhost, use um token de depuração cadastrado.";
+  }
+  if (/quota|429|rate-limit|free_tier|limit: 0/i.test(msg)) {
+    return "Cota do modelo esgotada ou indisponível neste projeto. Use Gerar local ou confira a cota no Google AI.";
+  }
+  if (/403|permission.denied/i.test(msg)) {
+    return "Acesso à IA negado pelo projeto Firebase. Confira as permissões e a mensagem detalhada no console.";
+  }
+  if (/inactive|onboarding/i.test(msg)) {
+    return "AI Logic ainda inativo. Complete a configuração no console do Firebase.";
+  }
+  return msg;
+}
+
 async function jetStyleGenerate(prompt, modelName = "gemini-3.6-flash") {
-  const ai = getAI(getAIApp(), { backend: new GoogleAIBackend() });
+  const app = getAIApp();
+  // Valida o App Check antes de enviar o pedido ou tentar outros modelos.
+  await getToken(aiAppCheck);
+  const ai = getAI(app, { backend: new GoogleAIBackend() });
   const candidates = [modelName, "gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash"];
   const tried = new Set();
   let lastErr;
@@ -50,6 +70,10 @@ async function jetStyleGenerate(prompt, modelName = "gemini-3.6-flash") {
     } catch (e) {
       lastErr = e;
       console.warn("AI model failed:", m, e?.message || e);
+      // Bloqueios do projeto não são corrigidos trocando de modelo.
+      if (/401|403|permission.denied|unauthenticated|app.?check|recaptcha|deactivated|onboarding|AI Logic Project is inactive/i.test(e?.message || String(e))) {
+        throw e;
+      }
     }
   }
   throw lastErr || new Error("Nenhum modelo Gemini disponível");
@@ -331,13 +355,7 @@ async function runFirebaseGenerate(qtyOverride) {
   const prompt = buildPrompt(idea, tone, catHint, qty);
 
   try {
-    let text = "";
-    try {
-      text = await jetStyleGenerate(prompt, "gemini-3.6-flash");
-    } catch (e1) {
-      console.warn("gemini-3.6-flash falhou, tentando gemini-2.5-flash", e1);
-      text = await jetStyleGenerate(prompt, "gemini-2.5-flash");
-    }
+    const text = await jetStyleGenerate(prompt, "gemini-3.6-flash");
 
     const products = extractProducts(text).map((p) => normalizeProduct(p, catHint));
     if (!products.length) {
@@ -365,15 +383,7 @@ async function runFirebaseGenerate(qtyOverride) {
     }
   } catch (err) {
     console.error(err);
-    const msg = (err && err.message) ? err.message : String(err);
-    let friendly = msg;
-    if (/quota|429|rate-limit|free_tier|limit: 0/i.test(msg)) {
-      friendly = "Cota do modelo esgotada ou indisponível neste projeto. Use Gerar local ou troque o modelo/plano no Google AI.";
-    } else if (/inactive|onboarding/i.test(msg)) {
-      friendly = "AI Logic ainda inativo. Complete o onboarding no console.";
-    } else if (/App Check|appCheck|403/i.test(msg)) {
-      friendly = "App Check bloqueou. Confira site key e domínio (pages.dev / localhost).";
-    }
+    const friendly = getFirebaseAIErrorMessage(err);
     if (typeof setAiStatus === "function") setAiStatus(friendly, "error");
     showToast(friendly, "error");
   } finally {
@@ -451,7 +461,7 @@ Regras: português BR; nome próprio quando fizer sentido (ex: Nina Riders Merch
     if (typeof showToast === "function") showToast("Vitrine gerada pela IA — revise e salve.");
   } catch (err) {
     console.error(err);
-    const msg = err?.message || String(err);
+    const msg = getFirebaseAIErrorMessage(err);
     if (typeof showToast === "function") {
       showToast("IA falhou: " + msg.slice(0, 120) + " — tentando local…", "error");
     }
@@ -525,7 +535,7 @@ Regras: português BR; sem emoji; cupom só se fizer sentido narrativo; cores ti
   } catch (err) {
     console.error(err);
     if (typeof showToast === "function") {
-      showToast("IA do evento falhou: " + String(err?.message || err).slice(0, 140), "error");
+      showToast("IA do evento falhou: " + getFirebaseAIErrorMessage(err).slice(0, 240), "error");
     }
   } finally {
     if (btn) {
@@ -534,3 +544,4 @@ Regras: português BR; sem emoji; cupom só se fizer sentido narrativo; cores ti
     }
   }
 };
+
