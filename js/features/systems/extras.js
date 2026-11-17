@@ -1044,6 +1044,7 @@ async function adminSaveVendor(e) {
     e.target.reset();
     document.getElementById('vendor-edit-id').value = '';
     document.getElementById('vendor-form-title').textContent = 'Nova vitrine';
+    adminLoadVendorProducts('');
     renderAdminVendors();
     fillVendorSelects();
   } catch (err) {
@@ -1062,6 +1063,7 @@ function adminEditVendor(id) {
   document.getElementById('vendor-tone').value = v.tone || '';
   document.getElementById('vendor-desc').value = v.description || '';
   document.getElementById('vendor-form-title').textContent = 'Editar vitrine';
+  adminLoadVendorProducts(id);
 }
 
 async function adminDeleteVendor(id) {

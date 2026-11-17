@@ -17,6 +17,7 @@ function renderAdminProductPicker(kind) {
       if (input.checked) selected.add(input.value); else selected.delete(input.value);
       field.value = [...selected].join(', ');
       if (kind === 'event') renderAdminEventPreview();
+      if (kind === 'vendor') renderAdminVendorPreview();
       root.querySelector('[data-picker-count]').textContent = `${selected.size} selecionado(s)`;
     });
   }
@@ -82,8 +83,49 @@ function renderAdminVendorPreview() {
   if (!panel) return;
   const value = key => document.getElementById('vendor-' + key).value.trim();
   const id = value('edit-id');
-  const count = id ? Object.values(state.products || {}).filter(p => p.vendorId === id).length : 0;
-  panel.innerHTML = `<strong>${escapeHTML(value('name') || 'Nome da vitrine')}</strong><p>${escapeHTML(value('tagline'))}</p><small class="text-muted">${count} produto(s) associado(s)</small>`;
+  const count = id ? readAdminProductIds(value('products')).length : 0;
+  panel.innerHTML = `<strong>${escapeHTML(value('name') || 'Nome da vitrine')}</strong><p>${escapeHTML(value('tagline'))}</p><small class="text-muted">${count} produto(s) na seleção</small>`;
+}
+
+function adminLoadVendorProducts(id, products = state.products) {
+  const editor = document.getElementById('vendor-product-controls');
+  const field = document.getElementById('vendor-products');
+  editor.hidden = !id;
+  field.baseline = new Set(id ? Object.entries(products || {}).filter(([,p]) => p.vendorId === id).map(([key]) => key) : []);
+  field.value = [...field.baseline].join(', ');
+  if (id) renderAdminProductPicker('vendor');
+  renderAdminVendorPreview();
+}
+
+async function adminApplyVendorProducts() {
+  const field = document.getElementById('vendor-products');
+  const vendor = document.getElementById('vendor-edit-id');
+  const id = vendor.value;
+  if (!id || !field.baseline || !state.vendors?.[id]) return;
+  const selected = new Set(readAdminProductIds(field.value));
+  const add = [...selected].filter(key => !field.baseline.has(key) && state.products?.[key]).map(key => ({key, before:state.products[key].vendorId || null}));
+  const remove = [...field.baseline].filter(key => !selected.has(key));
+  if (!add.length && !remove.length) return showToast('Nenhum vínculo para alterar.', 'info');
+  const moved = add.filter(row => row.before && row.before !== id).length;
+  const ok = await gsConfirm({title:'Atualizar produtos da vitrine', body:`Vincular <strong>${add.length}</strong> e retirar <strong>${remove.length}</strong> produto(s).${moved ? `<br>${moved} produto(s) serão movidos de outra vitrine.` : ''}`, confirmLabel:'Aplicar vínculos'});
+  if (!ok || id !== vendor.value) return;
+  const button = document.getElementById('vendor-products-apply');
+  button.disabled = true;
+  try {
+    const ref = db.ref('products'), stamp = Date.now();
+    await ref.once('value');
+    const result = await ref.transaction(current => {
+      if (!current || add.some(row => !current[row.key] || (current[row.key].vendorId || null) !== row.before)
+        || remove.some(key => current[key]?.vendorId !== id)) return;
+      const next = {...current};
+      for (const {key} of add) next[key] = {...current[key], vendorId:id, updatedAt:stamp};
+      for (const key of remove) next[key] = {...current[key], vendorId:null, updatedAt:stamp};
+      return next;
+    }, undefined, false);
+    if (result.committed && id === vendor.value) adminLoadVendorProducts(id, result.snapshot.val());
+    showToast(result.committed ? 'Vitrine atualizada.' : 'Houve mudanças no catálogo. Reabra a vitrine e confira os produtos.');
+  } catch (error) { showToast('Não foi possível atualizar os vínculos.', 'error'); }
+  finally { button.disabled = false; }
 }
 
 function adminViewVendorCatalog(id) {
