@@ -52,7 +52,10 @@ function getCartPayable() {
   const sub = getCartSubtotal();
   let couponDisc = 0;
   if (state.appliedCoupon && state.appliedCouponData && typeof calcCouponDiscount === 'function') {
-    couponDisc = calcCouponDiscount(sub, state.appliedCouponData);
+    const coupon = state.appliedCouponData;
+    const eligible = coupon.productIds?.length ? Object.entries(state.cart).reduce((sum, [id, item]) =>
+      sum + (couponIncludesProduct(coupon, id) ? getCartUnitPrice(id) * (item.qty || 0) : 0), 0) : sub;
+    couponDisc = calcCouponDiscount(eligible, coupon);
   }
   return {
     listSubtotal: getCartListSubtotal(),

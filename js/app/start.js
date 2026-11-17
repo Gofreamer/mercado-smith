@@ -16,6 +16,10 @@ auth.onAuthStateChanged(async (user) => {
     listenSiteSettings();
     showView('market');
   } else {
+    stopAdminOpenOrders();
+    state._adminListenersFor = null;
+    adminLogSelection = null;
+    adminPlayerSheetId = null;
     state.user = null;
     state.profile = null;
     state.cart = {};
