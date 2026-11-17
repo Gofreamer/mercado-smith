@@ -859,6 +859,10 @@
               <h3>Vitrines</h3>
               <div id="admin-vendors-list"></div>
               <aside class="admin-order-detail"><h3>Prévia da vitrine</h3><div id="admin-vendor-preview"></div></aside>
+              <div class="admin-order-detail" id="vendor-product-controls" hidden>
+                <h3>Produtos da vitrine</h3><input type="hidden" id="vendor-products"><div id="vendor-product-picker"></div>
+                <button type="button" id="vendor-products-apply" class="btn btn-primary btn-sm" onclick="adminApplyVendorProducts()">Aplicar vínculos</button>
+              </div>
             </div>
           </div>
         </div>
@@ -963,9 +967,9 @@
   <script src="./js/features/admin/admin-workspace.js?v=1"></script>
   <script src="./js/features/admin/admin-operations.js?v=1"></script>
   <script src="./js/features/admin/admin-maintenance.js?v=1"></script>
-  <script src="./js/features/admin/admin-campaign.js?v=1"></script>
+  <script src="./js/features/admin/admin-campaign.js?v=2"></script>
   <script src="./js/features/admin/admin-review.js?v=1"></script>
-  <script src="./js/features/systems/extras.js?v=admin-operations-1"></script>
+  <script src="./js/features/systems/extras.js?v=admin-operations-2"></script>
   <script src="./js/features/systems/bank.js"></script>
   <script src="./js/app/start.js?v=admin-operations-1"></script>
   <script type="module" src="./js/features/admin/firebase-ai.js?v=admin-workspace-1"></script>
