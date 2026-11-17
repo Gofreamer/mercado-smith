@@ -137,6 +137,14 @@ async function applyCartCoupon() {
       showToast('Cupom expirado.', 'error');
       return;
     }
+    if (c.startsAt && Number(c.startsAt) > Date.now()) {
+      showToast('Este cupom ainda não começou.', 'error');
+      return;
+    }
+    if (c.productIds?.length && !Object.keys(state.cart || {}).some(id => couponIncludesProduct(c, id))) {
+      showToast('O carrinho não tem produtos elegíveis para este cupom.', 'error');
+      return;
+    }
     const rank = getUserRank(state.profile, state.orders);
     if (c.minRank && !rankMeets(rank.id, c.minRank)) {
       showToast('Seu rank não permite este cupom.', 'error');
@@ -694,6 +702,8 @@ function renderEventBanner() {
 function renderAdminEvents() {
   const el = document.getElementById('admin-events-list');
   if (!el) return;
+  renderAdminProductPicker('event');
+  renderAdminEventPreview();
   const now = Date.now();
   const ending = state._adminEventFilter === 'ending';
   const list = Object.entries(state.events || {})
@@ -753,10 +763,7 @@ async function adminSaveEvent(e) {
   const discountPercent = parseFloat(document.getElementById('event-discount').value) || 0;
   const startsRaw = document.getElementById('event-starts').value;
   const endsRaw = document.getElementById('event-ends').value;
-  const productIdsRaw = document.getElementById('event-products').value.trim();
-  const productIds = productIdsRaw
-    ? productIdsRaw.split(/[\s,]+/).map(s => s.trim()).filter(Boolean)
-    : [];
+  const productIds = readAdminProductIds(document.getElementById('event-products').value);
   const active = document.getElementById('event-active').value === 'true';
   const useRealSchedule = document.getElementById('event-use-real')?.value === 'true';
   const startsLabel = (document.getElementById('event-starts-label')?.value || '').trim();
@@ -868,6 +875,8 @@ function adminEditEvent(id) {
     document.getElementById('event-ends').value = toLocalDateTimeInput(ev.endsAt);
   }
   document.getElementById('event-form-title').textContent = 'Editar evento';
+  renderAdminProductPicker('event');
+  renderAdminEventPreview();
   document.getElementById('admin-tab-events')?.scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -978,6 +987,7 @@ function selectVendor(id) {
 function renderAdminVendors() {
   const el = document.getElementById('admin-vendors-list');
   if (!el) return;
+  renderAdminVendorPreview();
   const list = Object.entries(state.vendors || {})
     .map(([id, v]) => ({ id, ...v }))
     .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -997,6 +1007,7 @@ function renderAdminVendors() {
           <td class="mono">${escapeHTML(v.slug || '')}</td>
           <td>${escapeHTML(v.tone || '—')}</td>
           <td class="admin-actions-cell">
+            <button class="btn btn-ghost btn-sm" type="button" data-vendor="${escapeHTML(v.id)}" onclick="adminViewVendorCatalog(this.dataset.vendor)">Ver produtos</button>
             <button class="btn btn-ghost btn-sm" onclick="adminEditVendor('${v.id}')">Editar</button>
             <button class="btn btn-ghost btn-sm text-danger" onclick="adminDeleteVendor('${v.id}')">Apagar</button>
           </td>
