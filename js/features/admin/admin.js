@@ -189,63 +189,8 @@ async function adminDeleteProduct(id) {
 
 /* ---------- PEDIDOS (admin) ---------- */
 
-function renderAdminOrders() {
-  const el = document.getElementById('admin-orders-list');
-  if (!el) return;
-
-  const all = state.allOrders || [];
-  const filtered = state._adminOrderFilter === 'overdue';
-  const orders = filtered ? all.filter(order => adminIsOverdue(order)).sort((a,b) => a.estimatedDelivery - b.estimatedDelivery) : all;
-  const toolbar = `<div class="admin-queue-filter"><label>Filtrar pedidos <select class="select" onchange="state._adminOrderFilter=this.value;renderAdminOrders()"><option value="">Todos</option><option value="overdue" ${filtered ? 'selected' : ''}>Atrasados</option></select></label><span class="text-muted">${orders.length} pedido(s)</span></div>`;
-  if (!orders.length) {
-    el.innerHTML = toolbar + '<div class="empty-state">Nenhum pedido neste filtro.</div>';
-    return;
-  }
-
-  el.innerHTML = toolbar + `
-    <div class="admin-table-wrap">
-      <table class="admin-table">
-        <thead>
-          <tr>
-            <th>Pedido</th>
-            <th>Jogador</th>
-            <th>Valor</th>
-            <th>Status</th>
-            <th>Previsão</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${orders.map(o => {
-            const status = o.status || 'delivered';
-            const sClass = statusClass(status);
-            return `
-              <tr>
-                <td>
-                  <div class="admin-prod-name">${escapeHTML(o.productName)}${(o.quantity || 1) > 1 ? ` ×${o.quantity}` : ''}</div>
-                  <div class="admin-prod-desc">${formatDateTime(o.createdAt)}</div>
-                </td>
-                <td>${escapeHTML(o.userName || o.userId || '—')}</td>
-                <td class="mono">${formatMoney(o.price)}</td>
-                <td><span class="status-pill ${sClass}">${STATUS_LABELS[status] || status}</span></td>
-                <td>${o.estimatedDelivery ? formatDate(o.estimatedDelivery) : '—'}</td>
-                <td class="admin-actions-cell">
-                  <select class="select select-sm" onchange="adminSetOrderStatus('${o.id}', this.value)">
-                    ${Object.entries(STATUS_LABELS).map(([k,v]) => `<option value="${k}" ${status===k?'selected':''}>${v}</option>`).join('')}
-                  </select>
-                  <button class="btn btn-ghost btn-sm" onclick="adminEditOrderDelivery('${o.id}')">Data</button>
-                </td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
 async function adminMarkDelivered(orderId) {
-  const order = state.allOrders.find(o => o.id === orderId);
+  const order = await adminReadOrder(orderId);
   if (!order) return;
   const ok = await gsConfirm({
     title: 'Marcar entregue',
@@ -287,7 +232,7 @@ async function adminMarkDelivered(orderId) {
 }
 
 async function adminEditOrderDelivery(orderId) {
-  const order = state.allOrders.find(o => o.id === orderId);
+  const order = await adminReadOrder(orderId);
   if (!order) return;
 
   const current = order.estimatedDelivery
@@ -397,12 +342,12 @@ async function adminAddProduct(e) {
 
 function switchAdminTab(tab, btn) {
   document.querySelectorAll('.admin-tab-panel').forEach(p => p.classList.add('hidden'));
-  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.admin-tab').forEach(t => { t.classList.remove('active'); t.removeAttribute('aria-current'); });
   document.getElementById('admin-tab-' + tab)?.classList.remove('hidden');
-  if (btn) btn.classList.add('active');
+  if (btn) { btn.classList.add('active'); btn.setAttribute('aria-current','page'); }
   else {
     const match = document.querySelector(`.admin-tab[onclick*="'${tab}'"]`);
-    if (match) match.classList.add('active');
+    if (match) { match.classList.add('active'); match.setAttribute('aria-current','page'); }
   }
   if (tab === 'mesa') renderAdminMesa();
   if (tab === 'products') { renderAdminProducts(); if (typeof fillVendorSelects === 'function') fillVendorSelects(); }
@@ -416,6 +361,7 @@ function switchAdminTab(tab, btn) {
   if (tab === 'log') renderAdminLog();
   if (tab === 'players') renderAdminPlayers();
   if (tab === 'access') { /* form only */ }
+  if (tab === 'maintenance') adminResetMaintenance();
 }
 
 function renderAdminMesa() {
@@ -1202,7 +1148,7 @@ if (typeof window.adminAddAiBatch !== 'function') {
 /* ---------- STATUS FLEXÍVEL + REP ---------- */
 
 async function adminSetOrderStatus(orderId, newStatus) {
-  const order = state.allOrders.find(o => o.id === orderId);
+  const order = await adminReadOrder(orderId);
   if (!order || !newStatus) return;
   const prev = order.status || 'in_transit';
   if (prev === newStatus) return;
@@ -1216,6 +1162,7 @@ async function adminSetOrderStatus(orderId, newStatus) {
     updates[`orders/${orderId}/deliveredAt`] = now;
   }
   if (newStatus === 'refunded') {
+    updates[`orders/${orderId}/refundedAt`] = now;
     // devolve saldo + extrato
     try {
       const userSnap = await db.ref('users/' + order.userId + '/balance').once('value');
@@ -1268,30 +1215,6 @@ async function adminSetOrderStatus(orderId, newStatus) {
 
 /* ---------- CUPONS ADMIN ---------- */
 
-function renderAdminCoupons() {
-  const el = document.getElementById('admin-coupons-list');
-  if (!el) return;
-  const list = Object.entries(state.coupons || {}).map(([code, c]) => ({ code, ...c }));
-  if (!list.length) {
-    el.innerHTML = '<div class="empty-state">Nenhum cupom.</div>';
-    return;
-  }
-  el.innerHTML = `<div class="admin-table-wrap"><table class="admin-table">
-    <thead><tr><th>Código</th><th>Tipo</th><th>Valor</th><th>Usos</th><th>Rank mín.</th><th></th></tr></thead>
-    <tbody>
-      ${list.map(c => `
-        <tr>
-          <td class="mono">${escapeHTML(c.code)}</td>
-          <td>${c.type === 'percent' ? '%' : '$'}</td>
-          <td>${c.type === 'percent' ? c.value + '%' : formatMoney(c.value)}</td>
-          <td>${c.uses || 0}${c.maxUses != null ? ' / ' + c.maxUses : ''}</td>
-          <td>${c.minRank || '—'}</td>
-          <td><button class="btn btn-ghost btn-sm text-danger" onclick="adminDeleteCoupon('${escapeHTML(c.code)}')">Apagar</button></td>
-        </tr>
-      `).join('')}
-    </tbody></table></div>`;
-}
-
 async function adminCreateCoupon(e) {
   e.preventDefault();
   const code = document.getElementById('coupon-code').value.trim().toUpperCase();
@@ -1299,22 +1222,35 @@ async function adminCreateCoupon(e) {
   const value = parseFloat(document.getElementById('coupon-value').value);
   const maxUses = document.getElementById('coupon-max').value;
   const minRank = document.getElementById('coupon-rank').value || null;
-  if (!code || isNaN(value)) {
+  const startValue = document.getElementById('coupon-starts').value;
+  const endValue = document.getElementById('coupon-expires').value;
+  const startsAt = startValue ? parseLocalDateTimeInput(startValue) : null;
+  const expires = endValue ? parseLocalDateTimeInput(endValue) : null;
+  const productIds = readAdminProductIds(document.getElementById('coupon-products').value);
+  if (startsAt && expires && startsAt >= expires) return showToast('O vencimento precisa ser depois do início.', 'error');
+  if (!/^[A-Z0-9_-]+$/.test(code) || !Number.isFinite(value) || value <= 0 || (type === 'percent' && value > 100)) {
     showToast('Código e valor obrigatórios.', 'error');
     return;
   }
   try {
-    await db.ref('coupons/' + code).set({
+    const ref = db.ref('coupons/' + code);
+    await ref.once('value');
+    const result = await ref.transaction(current => current ? undefined : ({
       type,
       value,
       uses: 0,
       maxUses: maxUses === '' ? null : parseInt(maxUses, 10),
       minRank,
+      startsAt,
+      expires,
+      productIds,
       createdAt: Date.now()
-    });
+    }), undefined, false);
+    if (!result.committed) return showToast('Esse código já existe.', 'error');
     showToast('Cupom criado: ' + code);
     e.target.reset();
-    pushFeed(`Código promocional ativo no núcleo GS.`, 'promo');
+    renderAdminProductPicker('coupon');
+    if (!startsAt || startsAt <= Date.now()) pushFeed(`Código promocional ativo no núcleo GS.`, 'promo');
   } catch (err) {
     console.error(err);
     showToast('Erro ao criar cupom.', 'error');
@@ -1374,25 +1310,6 @@ function renderAdminOffers() {
 
 /* ---------- LOG ADMIN ---------- */
 
-function renderAdminLog() {
-  const el = document.getElementById('admin-log-list');
-  if (!el) return;
-  const list = state.adminLog || [];
-  if (!list.length) {
-    el.innerHTML = '<div class="empty-state">Log vazio.</div>';
-    return;
-  }
-  el.innerHTML = list.slice(0, 80).map(e => `
-    <div class="log-row">
-      <span class="log-time">${formatDateTime(e.createdAt)}</span>
-      <span class="log-type">${escapeHTML(e.type || '')}</span>
-      <span class="log-body">${escapeHTML(
-        e.userName || ''
-      )} ${escapeHTML(e.productName || '')} ${e.total != null ? formatMoney(e.total) : ''} ${e.amount != null ? formatMoney(e.amount) : ''} ${e.from ? (e.from + '→' + e.to) : ''}</span>
-    </div>
-  `).join('');
-}
-
 /* ---------- ACESSO SUBSOLO ---------- */
 
 async function adminToggleBlackMarket(e) {
@@ -1428,40 +1345,20 @@ async function adminPostFeed(e) {
   e.target.reset();
 }
 
-async function adminClearFeed() {
-  const count = (state.feed || []).length;
-  if (!count) {
-    showToast('Feed já está vazio.', 'error');
-    return;
-  }
-  const ok = await gsConfirm({
-    title: 'Limpar canal GS',
-    body: `Apagar as <strong>${count}</strong> mensagens do feed do mercado?<br><span class="text-muted">Ação irreversível. Posts manuais e de eventos somem.</span>`,
-    confirmLabel: 'Limpar feed',
-    danger: true
-  });
-  if (!ok) return;
-  try {
-    await db.ref('marketFeed').remove();
-    showToast('Canal GS limpo.');
-  } catch (err) {
-    console.error(err);
-    showToast('Erro ao limpar feed.', 'error');
-  }
-}
-
 /* ---------- JOGADORES: inventário + rank ---------- */
 
 function renderAdminPlayers() {
   const el = document.getElementById('admin-players-list');
   if (!el) return;
 
+  const search = document.getElementById('admin-player-search').value.trim().toLocaleLowerCase('pt-BR');
   const users = Object.entries(state.allUsers || {})
     .map(([id, u]) => ({ id, ...u }))
+    .filter(u => `${u.name || ''} ${u.email || ''} ${u.id}`.toLocaleLowerCase('pt-BR').includes(search))
     .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   if (!users.length) {
-    el.innerHTML = '<div class="empty-state">Nenhum usuário carregado. Aguarde ou verifique as rules do Firebase (users read para admin).</div>';
+    el.innerHTML = '<div class="empty-state">Nenhum jogador encontrado.</div>';
     return;
   }
 
@@ -1472,8 +1369,7 @@ function renderAdminPlayers() {
           <tr>
             <th>Jogador</th>
             <th>Saldo</th>
-            <th>Rank</th>
-            <th>Rep (gasto / pedidos)</th>
+            <th>Cartão</th>
             <th>Itens</th>
             <th>Subsolo</th>
             <th></th>
@@ -1481,12 +1377,8 @@ function renderAdminPlayers() {
         </thead>
         <tbody>
           ${users.map(u => {
-            const userOrders = (state.allOrders || []).filter(o => o.userId === u.id);
-            const stats = getRepStats(u, userOrders);
-            const rank = getUserRank(u, userOrders);
             const invCount = Object.keys(u.inventory || {}).length;
-            const spent = stats.spent;
-            const orders = stats.orders;
+            const card = u.card?.status || 'active';
             return `
               <tr>
                 <td>
@@ -1494,11 +1386,11 @@ function renderAdminPlayers() {
                   <div class="admin-prod-desc">${escapeHTML(u.email || u.id)}</div>
                 </td>
                 <td class="mono">${formatMoney(u.balance)}</td>
-                <td><span class="rank-badge" style="background:${rank.color}22;color:${rank.color};border-color:${rank.color}55">${escapeHTML(rank.label)}${u.rankOverride ? ' *' : ''}</span></td>
-                <td class="mono" style="font-size:12px">${formatMoney(spent)} · ${orders}</td>
+                <td>${escapeHTML(typeof cardStatusLabel === 'function' ? cardStatusLabel(card) : card)}</td>
                 <td>${invCount}</td>
                 <td>${u.blackMarketAccess ? '<span class="tag-illegal">Sim</span>' : '—'}</td>
                 <td class="admin-actions-cell">
+                  <button type="button" class="btn btn-primary btn-sm" data-user="${escapeHTML(u.id)}" onclick="adminOpenPlayerSheet(this.dataset.user)">Ver ficha</button>
                   <button class="btn btn-ghost btn-sm" onclick="adminViewPlayerInventory('${u.id}')">Inventário</button>
                   <button class="btn btn-ghost btn-sm" onclick="adminViewPlayerLedger('${u.id}')">Extrato</button>
                   <button class="btn btn-ghost btn-sm" onclick="adminOpenRankEditor('${u.id}')">Rank</button>
@@ -1509,7 +1401,6 @@ function renderAdminPlayers() {
         </tbody>
       </table>
     </div>
-    <div id="admin-player-detail" class="admin-player-detail hidden"></div>
   `;
 }
 
