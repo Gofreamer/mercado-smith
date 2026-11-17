@@ -171,6 +171,7 @@ function applyProductToForm(product, catHint) {
   document.getElementById("admin-product-stock").value = p.stock === null ? "" : p.stock;
   const sec = document.getElementById("admin-product-secret");
   if (sec) sec.value = "";
+  if (typeof adminRenderProductPreview === "function") adminRenderProductPreview();
 
   document.getElementById("admin-product-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -547,4 +548,3 @@ Regras: português BR; sem emoji; cupom só se fizer sentido narrativo; cores ti
     }
   }
 };
-
