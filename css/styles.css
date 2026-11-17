@@ -1579,7 +1579,7 @@ button, input, select, textarea {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 10px;
-  color: var(--text-primary);
+  color: var(--text);
   font: inherit;
   cursor: pointer;
 }
@@ -1592,12 +1592,13 @@ button, input, select, textarea {
   align-items: start;
 }
 .admin-product-workspace > .admin-card { width: auto; max-width: none; min-width: 0; }
+.admin-product-workspace > .admin-product-editor { overflow: visible; }
 .admin-catalog-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.admin-catalog-filters, .admin-batch-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.admin-card .admin-catalog-filters, .admin-batch-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .admin-catalog-filters label, .admin-batch-fields label { display: grid; min-width: 0; gap: 4px; color: var(--text-secondary); font-size: 12px; }
 .admin-catalog-filters label:first-child { grid-column: 1 / -1; }
 .admin-catalog-filters :is(input,select), .admin-batch-fields :is(input,select) { width: 100%; min-width: 0; }
-.admin-batch-fields input { padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elevated); color: var(--text-primary); }
+.admin-batch-fields input { padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elevated); color: var(--text); }
 .admin-catalog-tools, .admin-queue-filter { display: flex; align-items: center; gap: 7px 10px; flex-wrap: wrap; margin: 9px 0; font-size: 12px; }
 .admin-catalog-tools label { display: flex; align-items: center; gap: 5px; }
 .admin-catalog-list { max-height: 65vh; overflow: auto; display: grid; gap: 6px; padding: 2px; }
@@ -1613,7 +1614,7 @@ button, input, select, textarea {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 8px;
-  color: var(--text-primary);
+  color: var(--text);
   text-align: left;
   font: inherit;
   cursor: pointer;
@@ -1634,7 +1635,7 @@ button, input, select, textarea {
 .admin-current-product-actions { margin-top: 8px; }
 .admin-current-product-actions code { display: block; margin-top: 5px; overflow-wrap: anywhere; }
 .admin-current-product-actions[hidden], .admin-batch-fields [hidden] { display: none; }
-.admin-batch-dialog { width: min(640px, calc(100% - 24px)); max-height: 86vh; margin: auto; padding: 18px; color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; }
+.admin-batch-dialog { width: min(640px, calc(100% - 24px)); max-height: 86vh; margin: auto; padding: 18px; color: var(--text); background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; }
 .admin-batch-dialog::backdrop { background: #090b11b8; }
 .admin-batch-dialog h3 { margin: 0 0 12px; }
 .admin-batch-dialog #admin-batch-summary { margin-top: 10px; font-size: 13px; }
