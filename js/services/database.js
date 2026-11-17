@@ -50,7 +50,12 @@ function listenProducts() {
     state.products = next;
     if (state.currentView === 'market') renderProducts();
     if (state.currentView === 'blackmarket') renderBlackMarket();
-    if (state.currentView === 'admin') renderAdminProducts();
+    if (state.currentView === 'admin') {
+      renderAdminProducts();
+      if (!document.getElementById('admin-tab-events').classList.contains('hidden')) renderAdminEvents();
+      if (!document.getElementById('admin-tab-coupons').classList.contains('hidden')) renderAdminCoupons();
+      if (!document.getElementById('admin-tab-vendors').classList.contains('hidden')) renderAdminVendorPreview();
+    }
     adminRefreshMesaIfVisible();
     if (state.currentView === 'wishlist') renderWishlist();
     if (state.cartOpen) renderCart();
@@ -107,17 +112,6 @@ function listenAllUsers() {
     if (state.currentView === 'admin') {
       if (typeof renderAdminPlayers === 'function') renderAdminPlayers();
     }
-  });
-}
-
-function listenAllOrders() {
-  db.ref('orders').on('value', (snap) => {
-    const data = snap.val() || {};
-    state.allOrders = Object.entries(data)
-      .map(([id, order]) => ({ id, ...order }))
-      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    if (state.currentView === 'admin') renderAdminOrders();
-    adminRefreshMesaIfVisible();
   });
 }
 
@@ -228,6 +222,10 @@ function calcCouponDiscount(total, coupon) {
   return 0;
 }
 
+function couponIncludesProduct(coupon, id) {
+  return !coupon?.productIds?.length || coupon.productIds.includes(id);
+}
+
 /** Compra rápida (1 unidade) com confirmação */
 async function buyProduct(productId) {
   const product = state.products[productId];
@@ -305,6 +303,7 @@ async function executePurchase(lines) {
   }
 
   let total = 0;
+  const lineSubtotals = new Map();
   for (const line of lines) {
     const p = state.products[line.productId];
     if (!p) {
@@ -324,12 +323,15 @@ async function executePurchase(lines) {
     const disc = (typeof getEventDiscountForProduct === 'function')
       ? getEventDiscountForProduct(line.productId, list)
       : { final: list };
-    total += disc.final * line.qty;
+    const subtotal = disc.final * line.qty;
+    total += subtotal;
+    lineSubtotals.set(line.productId, (lineSubtotals.get(line.productId) || 0) + subtotal);
   }
 
   // Cupom
   let discount = 0;
   let couponCode = null;
+  let appliedCoupon = null;
   if (state.appliedCoupon) {
     const c = state.coupons[state.appliedCoupon] || state.appliedCouponData;
     if (c) {
@@ -346,8 +348,19 @@ async function executePurchase(lines) {
         showToast('Cupom expirado.', 'error');
         return false;
       }
-      discount = calcCouponDiscount(total, c);
+      if (c.startsAt && Number(c.startsAt) > Date.now()) {
+        showToast('Este cupom ainda não começou.', 'error');
+        return false;
+      }
+      const eligible = [...lineSubtotals].filter(([id]) => couponIncludesProduct(c, id));
+      if (!eligible.length) {
+        showToast('Nenhum produto desta compra é elegível para o cupom.', 'error');
+        return false;
+      }
+      const eligibleTotal = c.productIds?.length ? eligible.reduce((sum, [, subtotal]) => sum + subtotal, 0) : total;
+      discount = calcCouponDiscount(eligibleTotal, c);
       couponCode = state.appliedCoupon;
+      appliedCoupon = c;
     }
   }
 
@@ -420,8 +433,8 @@ async function executePurchase(lines) {
       deliveredAt: delivery.deliveredAt,
       statusMessage: STATUS_MESSAGES[delivery.status] || '',
       illegal: !!isIllegal,
-      coupon: couponCode || null,
-      discount: discount > 0 ? discount : null,
+      coupon: couponIncludesProduct(appliedCoupon, line.productId) ? couponCode : null,
+      discount: couponIncludesProduct(appliedCoupon, line.productId) && discount > 0 ? discount : null,
       createdAt: Date.now()
     };
 
@@ -516,8 +529,8 @@ function updateAdminVisibility() {
   document.querySelectorAll('.admin-only').forEach(el => {
     el.classList.toggle('hidden', !isAdmin);
   });
-  if (isAdmin && state.allOrders.length === 0) {
-    listenAllOrders();
+  if (isAdmin && state._adminListenersFor !== state.user?.uid) {
+    state._adminListenersFor = state.user?.uid;
     listenCoupons();
     listenOffers();
     listenAdminLog();
