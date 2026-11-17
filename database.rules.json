@@ -23,6 +23,7 @@
 
     "orders": {
       ".read": "auth != null",
+      ".indexOn": ["status", "userId", "createdAt", "adminArchivedAt"],
       "$oid": {
         ".write": "auth != null && (root.child('users').child(auth.uid).child('isAdmin').val() === true || (!data.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid))"
       }
@@ -30,6 +31,7 @@
 
     "marketFeed": {
       ".read": "auth != null",
+      ".indexOn": ["createdAt"],
       ".write": "auth != null && root.child('users').child(auth.uid).child('isAdmin').val() === true"
     },
 
@@ -67,6 +69,7 @@
 
     "adminLog": {
       ".read": "auth != null && root.child('users').child(auth.uid).child('isAdmin').val() === true",
+      ".indexOn": ["createdAt", "orderId"],
       ".write": "auth != null"
     },
 
