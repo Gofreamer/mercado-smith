@@ -8,124 +8,6 @@ function getCategoryOptions(selected) {
 
 /* ---------- PRODUTOS ---------- */
 
-function renderAdminProducts() {
-  const el = document.getElementById('admin-products-list');
-  if (!el) return;
-
-  const q = (state._adminProductQ || '').trim().toLowerCase();
-  const cat = state._adminProductCat || '';
-
-  let products = Object.entries(state.products)
-    .map(([id, p]) => ({ id, ...p }))
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || (a.name || '').localeCompare(b.name || ''));
-
-  if (q) {
-    products = products.filter(p =>
-      (p.name || '').toLowerCase().includes(q) ||
-      (p.description || '').toLowerCase().includes(q) ||
-      String(p.id).toLowerCase().includes(q)
-    );
-  }
-  if (cat) products = products.filter(p => p.category === cat);
-
-  const catOpts = Object.entries(CATEGORY_LABELS).map(([k, v]) =>
-    `<option value="${k}" ${cat === k ? 'selected' : ''}>${v}</option>`
-  ).join('');
-
-  if (Object.keys(state.products || {}).length === 0) {
-    el.innerHTML = '<div class="empty-state">Catálogo GS vazio. Cadastre o primeiro item.</div>';
-    return;
-  }
-
-  el.innerHTML = `
-    <div class="admin-products-toolbar">
-      <input type="search" class="search-input" id="admin-product-search" placeholder="Filtrar nome, ID…" value="${escapeHTML(state._adminProductQ || '')}" oninput="adminSetProductFilter(this.value, null)" style="min-width:160px;flex:1"/>
-      <select class="select select-sm" id="admin-product-cat" onchange="adminSetProductFilter(null, this.value)">
-        <option value="">Todas categorias</option>
-        ${catOpts}
-      </select>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="adminToggleAllProductChecks(true)">Selecionar todos</button>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="adminToggleAllProductChecks(false)">Limpar seleção</button>
-      <button type="button" class="btn btn-primary btn-sm" onclick="copySelectedProductIds()">Copiar IDs</button>
-      <span class="text-muted admin-hint" id="admin-products-selected-hint" style="font-size:12px"></span>
-    </div>
-    ${products.length === 0 ? '<div class="empty-state">Nenhum produto com esse filtro.</div>' : ''}
-    <div class="admin-table-wrap">
-      <table class="admin-table">
-        <thead>
-          <tr>
-            <th style="width:36px"><input type="checkbox" id="admin-products-check-all" onchange="adminToggleAllProductChecks(this.checked)" title="Selecionar todos"/></th>
-            <th>Produto</th>
-            <th>ID</th>
-            <th>Preço</th>
-            <th>Estoque</th>
-            <th>Entrega</th>
-            <th>Categoria</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${products.map(p => {
-            const stock = (p.stock === null || p.stock === undefined) ? '∞' : p.stock;
-            const delivery = p.deliveryDays > 0 ? `${p.deliveryDays}d` : 'Imediata';
-            const safeId = String(p.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-            return `
-              <tr>
-                <td>
-                  <input type="checkbox" class="admin-product-check" value="${escapeHTML(p.id)}" onchange="adminUpdateSelectedHint()"/>
-                </td>
-                <td>
-                  <div class="admin-prod-name">${escapeHTML(p.name)}</div>
-                  <div class="admin-prod-desc">${escapeHTML((p.description || '').slice(0, 60))}</div>
-                </td>
-                <td>
-                  <code class="admin-id-code" title="${escapeHTML(p.id)}">${escapeHTML(p.id)}</code>
-                  <button type="button" class="btn btn-ghost btn-sm" onclick="copyProductId('${safeId}')" title="Copiar ID">Copiar</button>
-                </td>
-                <td class="mono">${formatMoney(p.price)}</td>
-                <td class="mono">${stock}</td>
-                <td>${delivery}</td>
-                <td>${escapeHTML(CATEGORY_LABELS[p.category] || p.category || '')}</td>
-                <td class="admin-actions-cell admin-actions-stock">
-                  <button class="btn btn-ghost btn-sm" onclick="adminEditProduct('${p.id}')">Editar</button>
-                  <button class="btn btn-ghost btn-sm" onclick="adminAdjustStock('${p.id}', 3)" title="Repor +3">+3</button>
-                  <button class="btn btn-ghost btn-sm" onclick="adminAdjustStock('${p.id}', 10)" title="Repor +10">+10</button>
-                  <button class="btn btn-ghost btn-sm text-danger" onclick="adminAdjustStock('${p.id}', 0)" title="Esgotar estoque">Esgotar</button>
-                  <button class="btn btn-ghost btn-sm text-danger" onclick="adminDeleteProduct('${p.id}')">Apagar</button>
-                </td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
-  adminUpdateSelectedHint();
-}
-
-function adminGetSelectedProductIds() {
-  return Array.from(document.querySelectorAll('.admin-product-check:checked')).map(el => el.value);
-}
-
-function adminToggleAllProductChecks(checked) {
-  document.querySelectorAll('.admin-product-check').forEach(el => { el.checked = !!checked; });
-  const master = document.getElementById('admin-products-check-all');
-  if (master) master.checked = !!checked;
-  adminUpdateSelectedHint();
-}
-
-function adminUpdateSelectedHint() {
-  const n = adminGetSelectedProductIds().length;
-  const hint = document.getElementById('admin-products-selected-hint');
-  if (hint) hint.textContent = n ? `${n} selecionado(s)` : '';
-  const master = document.getElementById('admin-products-check-all');
-  if (master) {
-    const total = document.querySelectorAll('.admin-product-check').length;
-    master.checked = total > 0 && n === total;
-    master.indeterminate = n > 0 && n < total;
-  }
-}
-
 async function copyProductId(id) {
   if (!id) return;
   try {
@@ -170,12 +52,6 @@ async function copySelectedProductIds() {
 }
 
 
-function adminSetProductFilter(q, cat) {
-  if (q !== null && q !== undefined) state._adminProductQ = q;
-  if (cat !== null && cat !== undefined) state._adminProductCat = cat;
-  renderAdminProducts();
-}
-
 async function adminAdjustStock(id, delta) {
   const p = state.products[id];
   if (!p) return;
@@ -205,11 +81,27 @@ function adminResetProductForm() {
   if (btn) btn.textContent = 'Adicionar Produto';
   const cancel = document.getElementById('admin-product-cancel');
   if (cancel) cancel.classList.add('hidden');
+  if (form) form.originalProduct = adminProductDraft();
+  adminUpdateProductActions();
 }
 
-function adminEditProduct(id) {
+async function adminCanSwitchProduct() {
+  if (document.getElementById('admin-product-submit').disabled) return false;
+  const form = document.getElementById('admin-product-form');
+  const original = form.originalProduct;
+  if (!original || JSON.stringify(original) === JSON.stringify(adminProductDraft())) return true;
+  return gsConfirm({title:'Descartar alterações?', body:'O formulário tem alterações ainda não salvas.', confirmLabel:'Descartar', danger:true});
+}
+
+async function adminOpenNewProduct() {
+  if (!(await adminCanSwitchProduct())) return;
+  adminResetProductForm();
+  document.getElementById('admin-product-name').focus();
+}
+
+async function adminEditProduct(id) {
   const p = state.products[id];
-  if (!p) return;
+  if (!p || state.editingProductId === id || !(await adminCanSwitchProduct())) return;
 
   state.editingProductId = id;
   document.getElementById('admin-product-name').value = p.name || '';
@@ -233,56 +125,48 @@ function adminEditProduct(id) {
   document.getElementById('admin-product-submit').textContent = 'Salvar alterações';
   document.getElementById('admin-product-cancel')?.classList.remove('hidden');
 
-  document.getElementById('admin-product-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('admin-product-form').originalProduct = adminProductDraft();
+  adminUpdateProductActions();
+  if (window.matchMedia('(max-width: 1000px)').matches) document.getElementById('admin-product-form-title').scrollIntoView({block:'nearest'});
 }
 
 async function adminSaveProduct(e) {
   e.preventDefault();
-
-  const name = document.getElementById('admin-product-name').value.trim();
-  const description = document.getElementById('admin-product-desc').value.trim();
-  const price = parseFloat(document.getElementById('admin-product-price').value);
-  const category = document.getElementById('admin-product-category').value;
-  const image = document.getElementById('admin-product-image').value.trim();
-  const stockRaw = document.getElementById('admin-product-stock').value;
-  const deliveryDays = parseInt(document.getElementById('admin-product-delivery').value, 10) || 0;
-
-  if (!name || isNaN(price)) {
-    showToast('Preencha nome e preço corretamente.', 'error');
+  const form = e.currentTarget;
+  const button = document.getElementById('admin-product-submit');
+  if (button.disabled) return;
+  const product = adminProductDraft();
+  if (!product.name || !product.description || !Number.isFinite(product.price) || product.price < 0) {
+    showToast('Preencha nome, descrição e preço corretamente.', 'error');
     return;
   }
-
-  const secretRank = document.getElementById('admin-product-secret')?.value || '';
-  const vendorId = document.getElementById('admin-product-vendor')?.value || '';
-
-  const product = {
-    name,
-    description,
-    price,
-    category,
-    image: image || '',
-    stock: stockRaw === '' ? null : parseInt(stockRaw, 10),
-    deliveryDays: deliveryDays > 0 ? deliveryDays : 0,
-    secretRank: secretRank || null,
-    vendorId: vendorId || null,
-    createdAt: state.editingProductId
-      ? (state.products[state.editingProductId]?.createdAt || Date.now())
-      : Date.now(),
-    updatedAt: Date.now()
-  };
-
+  if (product.image && !/^https?:\/\//i.test(product.image)) {
+    showToast('Use um endereço de imagem que comece com http ou https.', 'error');
+    return;
+  }
+  const id = state.editingProductId;
+  const now = Date.now();
+  button.disabled = true;
   try {
-    if (state.editingProductId) {
-      await db.ref('products/' + state.editingProductId).update(product);
+    if (id) {
+      if (!state.products[id]) return showToast('Este produto foi removido do catálogo.', 'error');
+      const changes = Object.fromEntries(Object.entries(product).filter(([field, value]) => value !== form.originalProduct?.[field]));
+      if (!Object.keys(changes).length) return showToast('Nenhuma alteração para salvar.', 'info');
+      const ref = db.ref('products/' + id);
+      await ref.once('value');
+      const result = await ref.transaction(current => current ? { ...current, ...changes, updatedAt:now } : undefined, undefined, false);
+      if (!result.committed) return showToast('Este produto foi removido do catálogo.', 'error');
       showToast('Produto atualizado!');
     } else {
-      await db.ref('products').push(product);
+      await db.ref('products').push({ ...product, createdAt:now, updatedAt:now });
       showToast('Produto adicionado!');
     }
     adminResetProductForm();
   } catch (err) {
     console.error(err);
     showToast('Erro ao salvar produto.', 'error');
+  } finally {
+    button.disabled = false;
   }
 }
 
@@ -313,13 +197,16 @@ function renderAdminOrders() {
   const el = document.getElementById('admin-orders-list');
   if (!el) return;
 
-  const orders = state.allOrders || [];
-  if (orders.length === 0) {
-    el.innerHTML = '<div class="empty-state">Canal de entregas silencioso. Nenhum pedido no sistema.</div>';
+  const all = state.allOrders || [];
+  const filtered = state._adminOrderFilter === 'overdue';
+  const orders = filtered ? all.filter(order => adminIsOverdue(order)).sort((a,b) => a.estimatedDelivery - b.estimatedDelivery) : all;
+  const toolbar = `<div class="admin-queue-filter"><label>Filtrar pedidos <select class="select" onchange="state._adminOrderFilter=this.value;renderAdminOrders()"><option value="">Todos</option><option value="overdue" ${filtered ? 'selected' : ''}>Atrasados</option></select></label><span class="text-muted">${orders.length} pedido(s)</span></div>`;
+  if (!orders.length) {
+    el.innerHTML = toolbar + '<div class="empty-state">Nenhum pedido neste filtro.</div>';
     return;
   }
 
-  el.innerHTML = `
+  el.innerHTML = toolbar + `
     <div class="admin-table-wrap">
       <table class="admin-table">
         <thead>
@@ -536,6 +423,7 @@ function switchAdminTab(tab, btn) {
 }
 
 function renderAdminMesa() {
+  adminRenderQueues();
   const finEl = document.getElementById('mesa-finance');
   const lowEl = document.getElementById('mesa-low-stock');
   const transitEl = document.getElementById('mesa-in-transit');
@@ -590,7 +478,7 @@ function renderAdminMesa() {
   if (lowEl) {
     const low = Object.entries(state.products || {})
       .map(([id, p]) => ({ id, ...p }))
-      .filter(p => p.stock !== null && p.stock !== undefined && Number(p.stock) <= 3)
+      .filter(adminIsLowStock)
       .sort((a, b) => (Number(a.stock) || 0) - (Number(b.stock) || 0));
     if (!low.length) {
       lowEl.innerHTML = '<p class="text-muted">Nenhum item crítico.</p>';
@@ -641,7 +529,7 @@ function renderAdminMesa() {
           : (ev.endsLabel || '');
         return `<li>
           <strong>${escapeHTML(ev.tagLabel || ev.name || 'Evento')}</strong>
-          ${flash ? '<span class="stock-badge flash-badge">Relâmpago</span>' : ''}
+          ${flash ? '<span class="event-tag">Relâmpago</span>' : ''}
           ${cd ? `<span class="text-muted">${escapeHTML(String(cd))}</span>` : ''}
           <span class="text-muted">${(ev.productIds || []).length} produto(s)</span>
         </li>`;
@@ -892,7 +780,7 @@ Gere um único produto coerente com o universo Global Smith.`;
     document.getElementById('admin-product-category').value = category;
     document.getElementById('admin-product-delivery').value = deliveryDays;
     document.getElementById('admin-product-stock').value = stock === null ? '' : stock;
-    // imagem fica a cargo do admin (Imgur)
+    adminRenderProductPreview();
 
     document.getElementById('admin-product-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setAiStatus('Pronto! Revise o formulário e clique em Adicionar Produto.', 'ok');
@@ -1149,6 +1037,7 @@ function generateProductLocal() {
         document.getElementById('admin-product-category').value = p.category;
         document.getElementById('admin-product-delivery').value = p.deliveryDays;
         document.getElementById('admin-product-stock').value = p.stock === null ? '' : p.stock;
+        adminRenderProductPreview();
         document.getElementById('admin-product-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setAiStatus('Gerado localmente. Revise e clique em Adicionar Produto.', 'ok');
         showToast('Item gerado (local)');
@@ -1166,6 +1055,7 @@ function generateProductLocal() {
         document.getElementById('admin-product-category').value = p.category;
         document.getElementById('admin-product-delivery').value = p.deliveryDays;
         document.getElementById('admin-product-stock').value = p.stock === null ? '' : p.stock;
+        adminRenderProductPreview();
         setAiStatus(`${products.length} variações locais. Publique o lote ou edite no form.`, 'ok');
         showToast(`Lote local: ${products.length} itens`);
       }
@@ -1238,6 +1128,7 @@ if (typeof window.adminApplyAiBatchItem !== 'function') {
     document.getElementById('admin-product-category').value = p.category || 'exoticos';
     document.getElementById('admin-product-delivery').value = p.deliveryDays || 0;
     document.getElementById('admin-product-stock').value = p.stock == null ? '' : p.stock;
+    adminRenderProductPreview();
     showToast('Carregado no formulário — revise e salve.');
   };
 }
