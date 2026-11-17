@@ -124,7 +124,7 @@ function productCardHTML(p, opts = {}) {
 
   const wished = !!(state.wishlist && state.wishlist[p.id]);
   const secretBadge = p.secretRank
-    ? `<div class="stock-badge secret">Secreto · ${RANK_THRESHOLDS.find(r => r.id === p.secretRank)?.label || p.secretRank}</div>`
+    ? `<div class="stock-badge secret">Secreto · ${escapeHTML(RANK_THRESHOLDS.find(r => r.id === p.secretRank)?.label || p.secretRank)}</div>`
     : '';
   const illegalBadge = p.category === 'ilegais'
     ? `<div class="stock-badge illegal">Irregular</div>`
@@ -145,8 +145,13 @@ function productCardHTML(p, opts = {}) {
   const isLow = !isOut && !isLast && p.stock !== null && p.stock !== undefined && p.stock <= 5;
   const flash = typeof getFlashInfoForProduct === 'function' ? getFlashInfoForProduct(p.id) : null;
   const flashBadge = flash
-    ? `<div class="stock-badge flash-badge">${flash.label}<span class="flash-countdown" data-ends="${flash.endsAt || ''}">${flash.countdown || ''}</span></div>`
+    ? `<div class="stock-badge flash-badge">${escapeHTML(flash.label)}<span class="flash-countdown" data-ends="${escapeHTML(flash.endsAt || '')}">${escapeHTML(flash.countdown || '')}</span></div>`
     : '';
+
+  const stockBadge = isOut ? '<div class="stock-badge out">Esgotado</div>'
+    : isLast ? '<div class="stock-badge last-unit">Última unidade</div>'
+    : isLow ? `<div class="stock-badge low">Só ${escapeHTML(p.stock)}</div>` : '';
+  const badges = stockBadge + flashBadge + secretBadge + illegalBadge + eventBadges;
 
   const cardClass = [
     'product-card',
@@ -160,12 +165,10 @@ function productCardHTML(p, opts = {}) {
 
   return `
     <div class="${cardClass}" onclick="openProductModal('${p.id}')">
-      ${isOut ? '<div class="stock-badge out">Esgotado</div>' : ''}
-      ${isLast ? '<div class="stock-badge last-unit">Última unidade</div>' : ''}
-      ${isLow ? `<div class="stock-badge low">Só ${p.stock}</div>` : ''}
-      ${flashBadge}
-      ${secretBadge}${illegalBadge}${eventBadges}
-      ${imgHtml}
+      <div class="product-card-media">
+        ${imgHtml}
+        ${badges ? `<div class="product-card-badges">${badges}</div>` : ''}
+      </div>
       <div class="product-body">
         <div class="product-category">${escapeHTML(CATEGORY_LABELS[p.category] || p.category || '')}${p.vendorId && state.vendors?.[p.vendorId] ? ` · <span class="product-vendor">${escapeHTML(state.vendors[p.vendorId].name)}</span>` : ''}</div>
         <div class="product-name">${escapeHTML(p.name)}</div>

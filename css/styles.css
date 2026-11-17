@@ -413,6 +413,34 @@ button, input, select, textarea {
   transform: translateY(-2px);
 }
 
+/* The badge row can wrap without covering the details below the photo. */
+.product-card-media {
+  position: relative;
+  min-height: 160px;
+  background: var(--bg-elevated);
+}
+.product-card-media > .product-image,
+.product-card-media > .product-image-placeholder {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+}
+.product-card-badges {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 10px;
+  pointer-events: none;
+}
+.product-card-badges > .stock-badge {
+  position: static;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .product-image {
   width: 100%;
   height: 160px;
@@ -465,6 +493,8 @@ button, input, select, textarea {
 
 .product-footer {
   display: flex;
+  flex-wrap: wrap;
+  gap: 10px 12px;
   align-items: center;
   justify-content: space-between;
   margin-top: 12px;
@@ -834,6 +864,7 @@ button, input, select, textarea {
 
 .product-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
@@ -2082,11 +2113,11 @@ body.theme-blackmarket .brand {
   box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.25);
 }
 .stock-badge.secret {
-  background: rgba(167, 139, 250, 0.2);
+  background: #503475;
   color: #c4b5fd;
 }
 .stock-badge.illegal {
-  background: rgba(220, 38, 38, 0.25);
+  background: #74252d;
   color: #fca5a5;
 }
 .tag-illegal {
@@ -2315,9 +2346,6 @@ body.theme-blackmarket .brand {
 .stock-badge.event-badge {
   background: var(--event-color, #e11d48);
   color: #fff;
-  top: 8px;
-  left: 8px;
-  right: auto;
 }
 .product-card-event {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--event-color, #e11d48) 25%, transparent);
