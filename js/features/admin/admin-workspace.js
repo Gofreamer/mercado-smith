@@ -78,7 +78,7 @@ function renderAdminProducts() {
     return `<div class="admin-catalog-row">
       <input type="checkbox" class="admin-product-check" value="${id}" aria-label="Selecionar ${name}" ${adminCheckedProducts.has(product.id) ? 'checked' : ''}>
       <button type="button" class="admin-catalog-product" data-product="${id}" aria-pressed="${state.editingProductId === product.id}" onclick="adminEditProduct(this.dataset.product)">
-        <span class="admin-catalog-thumb">${/^https?:\/\//i.test(product.image || '') ? `<img src="${escapeHTML(product.image)}" alt="" loading="lazy">` : ''}</span>
+        <span class="admin-catalog-thumb">${product.image ? `<img src="${escapeHTML(product.image)}" alt="" loading="lazy">` : ''}</span>
         <span><strong>${name}</strong><small>${escapeHTML(CATEGORY_LABELS[product.category] || product.category || '')} · ${escapeHTML(vendor)}</small><small>${formatMoney(product.price)} · ${stock}</small></span>
       </button>
     </div>`;
@@ -129,7 +129,7 @@ function adminRenderProductPreview() {
   if (!panel) return;
   const draft = adminProductDraft();
   const product = { ...draft, id:state.editingProductId || '', name:draft.name || 'Nome do produto',
-    price:Number.isFinite(draft.price) ? draft.price : 0, image:/^https?:\/\//i.test(draft.image) ? draft.image : '' };
+    price:Number.isFinite(draft.price) ? draft.price : 0 };
   const mark = JSON.stringify([product, state.vendors?.[product.vendorId]?.name]);
   if (panel.previewMark === mark && panel.previewEvents === state.events) return;
   panel.previewMark = mark;
