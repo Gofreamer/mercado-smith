@@ -140,10 +140,6 @@ async function adminSaveProduct(e) {
     showToast('Preencha nome, descrição e preço corretamente.', 'error');
     return;
   }
-  if (product.image && !/^https?:\/\//i.test(product.image)) {
-    showToast('Use um endereço de imagem que comece com http ou https.', 'error');
-    return;
-  }
   const id = state.editingProductId;
   const now = Date.now();
   button.disabled = true;
