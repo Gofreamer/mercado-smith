@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link href="./css/styles.css?v=admin-workspace-1" rel="stylesheet"/>
+  <link href="./css/styles.css?v=admin-operations-1" rel="stylesheet"/>
 
   <!-- Firebase SDK (compat) — App Check removido de propósito -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -229,8 +229,9 @@
           <h2>Painel Administrativo</h2>
         </div>
 
-        <div class="admin-tabs">
-          <button class="admin-tab active" onclick="switchAdminTab('mesa', this)">Mesa</button>
+        <div class="admin-shell">
+        <nav class="admin-tabs" aria-label="Painel administrativo">
+          <button class="admin-tab active" aria-current="page" onclick="switchAdminTab('mesa', this)">Mesa</button>
           <button class="admin-tab" onclick="switchAdminTab('products', this)">Produtos</button>
           <button class="admin-tab" onclick="switchAdminTab('orders', this)">Pedidos / Entregas</button>
           <button class="admin-tab" onclick="switchAdminTab('balance', this)">Saldo</button>
@@ -243,7 +244,9 @@
           <button class="admin-tab" onclick="switchAdminTab('events', this)">Eventos</button>
           <button class="admin-tab" onclick="switchAdminTab('vendors', this)">Vitrines</button>
           <button class="admin-tab" onclick="switchAdminTab('log', this)">Log</button>
-        </div>
+          <button class="admin-tab" onclick="switchAdminTab('maintenance', this)">Manutenção</button>
+        </nav>
+        <div class="admin-page">
 
         <!-- Tab: Mesa (painel de sessão) -->
         <div id="admin-tab-mesa" class="admin-tab-panel">
@@ -270,7 +273,7 @@
             <div class="admin-card">
               <h3>Canal GS</h3>
               <p class="text-muted admin-hint" id="mesa-feed-count"></p>
-              <button type="button" class="btn btn-ghost text-danger" onclick="adminClearFeed()">Limpar feed</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="switchAdminTab('maintenance')">Manutenção do feed</button>
               <button type="button" class="btn btn-primary" onclick="switchAdminTab('access', document.querySelector('[onclick*=access]'))">Publicar no feed</button>
             </div>
           </div>
@@ -441,11 +444,13 @@
             <h3>Pedidos &amp; Entregas</h3>
             <p class="text-muted admin-hint">Marque como entregue ou altere a data de previsão. O inventário do jogador é atualizado junto.</p>
             <div id="admin-orders-list"></div>
+            <div id="admin-order-detail" class="admin-order-detail" hidden></div>
           </div>
         </div>
 
         <!-- Tab: Saldo -->
         <div id="admin-tab-balance" class="admin-tab-panel hidden">
+          <button class="btn btn-ghost btn-sm" type="button" onclick="switchAdminTab('players')">Consultar ficha de jogador</button>
           <div class="admin-card" style="max-width:420px">
             <h3>Ajustar Saldo</h3>
             <p class="text-muted admin-hint">Lança no extrato do Banco GS automaticamente.</p>
@@ -469,6 +474,7 @@
 
         <!-- Tab: Empréstimos -->
         <div id="admin-tab-loans" class="admin-tab-panel hidden">
+          <button class="btn btn-ghost btn-sm" type="button" onclick="switchAdminTab('players')">Consultar ficha de jogador</button>
           <div class="admin-card admin-card-wide">
             <h3>Pedidos de crédito</h3>
             <p class="text-muted admin-hint">Aprovar credita o saldo e abre dívida no Banco do jogador.</p>
@@ -479,6 +485,7 @@
 
         <!-- Tab: Cartões -->
         <div id="admin-tab-cards" class="admin-tab-panel hidden">
+          <button class="btn btn-ghost btn-sm" type="button" onclick="switchAdminTab('players')">Consultar ficha de jogador</button>
           <div class="admin-layout">
             <div class="admin-card">
               <h3>Gerir cartão do jogador</h3>
@@ -584,7 +591,9 @@
           <div class="admin-card admin-card-wide">
             <h3>Jogadores</h3>
             <p class="text-muted admin-hint">Ver inventário e ajustar rank. Asterisco (*) no rank = override manual.</p>
+            <label class="admin-queue-filter">Buscar jogador <input type="search" id="admin-player-search" class="search-input" placeholder="Nome, e-mail ou ID" oninput="renderAdminPlayers()"></label>
             <div id="admin-players-list"></div>
+            <div id="admin-player-detail" class="admin-player-detail hidden"></div>
           </div>
         </div>
 
@@ -665,11 +674,18 @@
                     </select>
                   </div>
                 </div>
+                <div class="form-row">
+                  <div class="form-group"><label for="coupon-starts">Ativo a partir de</label><input type="datetime-local" id="coupon-starts"></div>
+                  <div class="form-group"><label for="coupon-expires">Expira em</label><input type="datetime-local" id="coupon-expires"></div>
+                </div>
+                <div class="form-group"><label>Produtos do cupom</label><p class="text-muted admin-hint">Sem seleção, vale na loja inteira.</p>
+                  <input type="hidden" id="coupon-products"><div id="coupon-product-picker"></div>
+                </div>
                 <button type="submit" class="btn btn-primary">Criar cupom</button>
               </form>
             </div>
             <div class="admin-card admin-card-wide">
-              <h3>Cupons ativos</h3>
+              <h3>Cupons</h3>
               <div id="admin-coupons-list"></div>
             </div>
           </div>
@@ -696,7 +712,7 @@
                 <input type="text" id="event-ai-tone" class="search-input" placeholder="Tom: show, premium, underground…" style="width:100%;margin-bottom:8px"/>
                 <button type="button" class="btn btn-primary btn-sm" id="btn-event-ai" onclick="generateEventWithFirebaseAI()">Gerar com IA</button>
               </div>
-              <form id="admin-event-form" onsubmit="adminSaveEvent(event)">
+              <form id="admin-event-form" oninput="renderAdminEventPreview()" onsubmit="adminSaveEvent(event)">
                 <input type="hidden" id="event-edit-id" value=""/>
                 <div class="form-group">
                   <label>Nome</label>
@@ -766,7 +782,8 @@
                 </div>
                 <div class="form-group">
                   <label>IDs dos produtos</label>
-                  <textarea id="event-products" rows="2" placeholder="id1, id2, id3"></textarea>
+                  <div id="event-product-picker"></div>
+                  <details><summary>Editar IDs manualmente</summary><textarea id="event-products" aria-label="IDs dos produtos do evento" rows="2" placeholder="id1, id2, id3" oninput="renderAdminProductPicker('event')"></textarea></details>
                   <p class="text-muted admin-hint">Dica: marque “usar relógio real” + data de fim = lote relâmpago (card destacado + countdown).</p>
                 </div>
                 <div class="form-row">
@@ -792,6 +809,7 @@
             <div class="admin-card admin-card-wide">
               <h3>Eventos</h3>
               <div id="admin-events-list"></div>
+              <aside class="admin-order-detail"><h3>Prévia do evento</h3><div id="admin-event-preview"></div></aside>
             </div>
           </div>
         </div>
@@ -812,7 +830,7 @@
                   <button type="button" class="btn btn-ghost btn-sm" onclick="generateVendorWithAI()">Gerar com IA</button>
                 </div>
               </div>
-              <form id="admin-vendor-form" onsubmit="adminSaveVendor(event)">
+              <form id="admin-vendor-form" oninput="renderAdminVendorPreview()" onsubmit="adminSaveVendor(event)">
                 <input type="hidden" id="vendor-edit-id" value=""/>
                 <div class="form-group">
                   <label>Nome</label>
@@ -840,6 +858,7 @@
             <div class="admin-card admin-card-wide">
               <h3>Vitrines</h3>
               <div id="admin-vendors-list"></div>
+              <aside class="admin-order-detail"><h3>Prévia da vitrine</h3><div id="admin-vendor-preview"></div></aside>
             </div>
           </div>
         </div>
@@ -849,9 +868,28 @@
           <div class="admin-card admin-card-wide">
             <h3>Log do mestre</h3>
             <p class="text-muted admin-hint">Compras, ofertas, mudanças de status e acessos.</p>
+            <form id="admin-log-filters" class="admin-operation-filters" oninput="renderAdminLog()" onsubmit="adminLoadLogs(event)">
+              <label>Jogador<input type="search" name="player" class="search-input" placeholder="Nome ou ID"></label>
+              <label>Ação<input type="search" name="action" class="search-input" placeholder="Ex.: status"></label>
+              <label>De<input type="date" name="from"></label><label>Até<input type="date" name="to"></label>
+              <button class="btn btn-primary btn-sm" type="submit">Consultar período</button><button class="btn btn-ghost btn-sm" type="button" onclick="adminExportLog()">Exportar resultados</button>
+            </form>
             <div id="admin-log-list" class="admin-log-list"></div>
           </div>
         </div>
+        <div id="admin-tab-maintenance" class="admin-tab-panel hidden">
+          <div class="admin-card admin-card-wide">
+            <h3>Manutenção</h3>
+            <p class="text-muted admin-hint">Arquive pedidos concluídos sem removê-los dos jogadores. A exclusão de pedidos só inclui registros arquivados sem jogador associado. O feed mantém as 20 mensagens mais recentes e o log mantém os 100 registros mais recentes.</p>
+            <form id="maintenance-form" class="admin-operation-filters" oninput="adminResetMaintenance()" onsubmit="adminPreviewMaintenance(event)">
+              <label>Registros<select class="select" name="datasetKind"><option value="archive">Pedidos concluídos para arquivar</option><option value="orphanOrders">Pedidos arquivados sem jogador</option><option value="feed">Feed antigo</option><option value="logs">Logs antigos</option></select></label>
+              <label>Mais antigos que (dias)<input type="number" name="days" min="1" value="90" required></label><button class="btn btn-primary" type="submit">Conferir registros</button>
+            </form>
+            <div class="admin-order-detail" id="maintenance-preview" role="status">Confira os registros antes de aplicar.</div>
+            <div class="admin-queue-filter"><button class="btn btn-ghost" id="maintenance-export" type="button" onclick="adminExportMaintenance()" disabled>Baixar JSON</button><button class="btn btn-primary" id="maintenance-apply" type="button" onclick="adminApplyMaintenance()" disabled>Aplicar</button></div>
+          </div>
+        </div>
+        </div></div>
       </section>
     </main>
   </div>
@@ -914,18 +952,22 @@
   <script src="./js/data/state.js"></script>
   <script src="./js/core/utils.js"></script>
   <script src="./js/services/auth.js"></script>
-  <script src="./js/services/database.js?v=admin-workspace-1"></script>
-  <script src="./js/app/navigation.js"></script>
+  <script src="./js/services/database.js?v=admin-operations-1"></script>
+  <script src="./js/app/navigation.js?v=admin-operations-1"></script>
   <script src="./js/app/auth-ui.js"></script>
   <script src="./js/features/market/market.js?v=product-badges-1"></script>
-  <script src="./js/features/cart/cart.js"></script>
+  <script src="./js/features/cart/cart.js?v=admin-operations-1"></script>
   <script src="./js/features/inventory/inventory.js"></script>
   <script src="./js/features/profile/profile.js"></script>
-  <script src="./js/features/admin/admin.js?v=admin-workspace-1"></script>
+  <script src="./js/features/admin/admin.js?v=admin-operations-1"></script>
   <script src="./js/features/admin/admin-workspace.js?v=1"></script>
-  <script src="./js/features/systems/extras.js?v=admin-workspace-1"></script>
+  <script src="./js/features/admin/admin-operations.js?v=1"></script>
+  <script src="./js/features/admin/admin-maintenance.js?v=1"></script>
+  <script src="./js/features/admin/admin-campaign.js?v=1"></script>
+  <script src="./js/features/admin/admin-review.js?v=1"></script>
+  <script src="./js/features/systems/extras.js?v=admin-operations-1"></script>
   <script src="./js/features/systems/bank.js"></script>
-  <script src="./js/app/start.js"></script>
+  <script src="./js/app/start.js?v=admin-operations-1"></script>
   <script type="module" src="./js/features/admin/firebase-ai.js?v=admin-workspace-1"></script>
 </body>
 </html>
