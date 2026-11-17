@@ -7,6 +7,7 @@ function showView(viewName) {
     viewName = 'market';
   }
 
+  if (state.currentView === 'admin' && viewName !== 'admin') stopAdminOpenOrders();
   state.currentView = viewName;
 
   document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
@@ -35,6 +36,7 @@ function showView(viewName) {
   if (viewName === 'wishlist') renderWishlist();
   if (viewName === 'bank') renderBank();
   if (viewName === 'admin') {
+    if (isUserAdmin()) listenAdminOpenOrders();
     if (typeof renderAdminMesa === 'function') renderAdminMesa();
     renderAdminProducts();
     renderAdminOrders();
@@ -44,6 +46,8 @@ function showView(viewName) {
     if (typeof renderAdminVendors === 'function') renderAdminVendors();
     if (typeof renderAdminLoans === 'function') renderAdminLoans();
     if (typeof renderAdminLog === 'function') renderAdminLog();
+    const mode = state._adminOrderFilter;
+    if (mode === 'history' || mode === 'archived') adminOrderMode(mode);
   }
 }
 
