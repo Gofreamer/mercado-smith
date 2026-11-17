@@ -694,17 +694,20 @@ function renderEventBanner() {
 function renderAdminEvents() {
   const el = document.getElementById('admin-events-list');
   if (!el) return;
+  const now = Date.now();
+  const ending = state._adminEventFilter === 'ending';
   const list = Object.entries(state.events || {})
     .map(([id, e]) => ({ id, ...e }))
-    .sort((a, b) => (b.startsAt || 0) - (a.startsAt || 0));
+    .filter(event => !ending || adminIsEndingSoon(event, now))
+    .sort((a, b) => ending ? a.endsAt - b.endsAt : (b.startsAt || 0) - (a.startsAt || 0));
+  const toolbar = `<div class="admin-queue-filter"><label>Filtrar eventos <select class="select" onchange="state._adminEventFilter=this.value;renderAdminEvents()"><option value="">Todos</option><option value="ending" ${ending ? 'selected' : ''}>Acabam em até 48 h</option></select></label><span class="text-muted">${list.length} evento(s)</span></div>`;
 
   if (!list.length) {
-    el.innerHTML = '<div class="empty-state">Nenhum evento. Crie a “Semana Nina Riders” ou similar.</div>';
+    el.innerHTML = toolbar + '<div class="empty-state">Nenhum evento neste filtro.</div>';
     return;
   }
 
-  const now = Date.now();
-  el.innerHTML = `<div class="admin-table-wrap"><table class="admin-table">
+  el.innerHTML = toolbar + `<div class="admin-table-wrap"><table class="admin-table">
     <thead><tr><th>Evento</th><th>Tag</th><th>Período</th><th>Produtos</th><th>Desc.</th><th></th></tr></thead>
     <tbody>
       ${list.map(e => {

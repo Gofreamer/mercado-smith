@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link href="./css/styles.css?v=product-badges-1" rel="stylesheet"/>
+  <link href="./css/styles.css?v=admin-workspace-1" rel="stylesheet"/>
 
   <!-- Firebase SDK (compat) — App Check removido de propósito -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -247,6 +247,7 @@
 
         <!-- Tab: Mesa (painel de sessão) -->
         <div id="admin-tab-mesa" class="admin-tab-panel">
+          <div id="mesa-queues" class="mesa-queues" aria-label="Pendências da Mesa"></div>
           <div class="admin-split">
             <div class="admin-card admin-card-wide">
               <h3>Financeiro da mesa</h3>
@@ -277,8 +278,8 @@
 
         <!-- Tab: Produtos -->
         <div id="admin-tab-products" class="admin-tab-panel hidden">
-          <div class="admin-card ai-card">
-            <h3>✨ Gerar produto com IA</h3>
+          <details class="admin-card ai-card admin-ai-tools" id="admin-product-ai">
+            <summary>Gerar produto com IA</summary>
             <p class="text-muted admin-hint">Descreva a ideia (ou um lote). <strong>Local</strong> = sem limite. <strong>Firebase AI</strong> = Gemini pelo projeto. Quantidade &gt; 1 gera vários itens de uma vez.</p>
             <div class="form-group">
               <label>Ideia / pedido do lote</label>
@@ -316,12 +317,31 @@
             <p class="ai-status" id="ai-status"></p>
             <div id="ai-batch-preview" class="ai-batch-preview hidden"></div>
             <p class="text-muted admin-hint" style="margin-top:8px">Firebase AI Logic precisa estar ativado no console do projeto mercado-smith. Lote máx. 10 itens.</p>
-          </div>
+          </details>
 
-          <div class="admin-split">
-            <div class="admin-card">
+          <div class="admin-product-workspace">
+            <section class="admin-card admin-catalog-sidebar" aria-label="Catálogo">
+              <div class="admin-catalog-heading"><h3>Catálogo</h3><button type="button" class="btn btn-primary btn-sm" onclick="adminOpenNewProduct()">Novo produto</button></div>
+              <form id="admin-catalog-filters" class="admin-catalog-filters">
+                <label>Buscar produto<input type="search" class="search-input" name="query" placeholder="Nome ou ID"></label>
+                <label>Categoria<select class="select" name="category"><option value="">Todas as categorias</option></select></label>
+                <label>Vitrine<select class="select" name="vendor"></select></label>
+                <label>Estoque<select class="select" name="stock"><option value="">Qualquer estoque</option><option value="low">Baixo ou zerado (até 3)</option><option value="out">Esgotado</option><option value="unlimited">Ilimitado</option></select></label>
+              </form>
+              <p id="admin-catalog-count" class="text-muted admin-hint" role="status"></p>
+              <div class="admin-catalog-tools">
+                <label><input type="checkbox" id="admin-products-check-all" onchange="adminToggleAllProductChecks(this.checked)"> Marcar visíveis</label>
+                <span id="admin-products-selected-hint" class="text-muted" aria-live="polite"></span>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="adminClearProductSelection()">Limpar seleção</button>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="copySelectedProductIds()">Copiar IDs</button>
+                <button type="button" class="btn btn-primary btn-sm" id="admin-product-batch" onclick="adminOpenProductBatch()">Ações em lote</button>
+              </div>
+              <div id="admin-products-list" class="admin-catalog-list"></div>
+            </section>
+            <section class="admin-card admin-product-editor" aria-label="Editor de produto">
               <h3 id="admin-product-form-title">Adicionar Produto</h3>
-              <form id="admin-product-form" onsubmit="adminSaveProduct(event)">
+              <div class="admin-product-edit-grid">
+              <form id="admin-product-form" oninput="adminRenderProductPreview()" onsubmit="adminSaveProduct(event)">
                 <div class="form-group">
                   <label>Nome</label>
                   <input type="text" id="admin-product-name" required/>
@@ -384,12 +404,35 @@
                   <button type="button" class="btn btn-ghost hidden" id="admin-product-cancel" onclick="adminResetProductForm()">Cancelar</button>
                 </div>
               </form>
-            </div>
-            <div class="admin-card admin-card-wide">
-              <h3>Produtos cadastrados</h3>
-              <div id="admin-products-list"></div>
-            </div>
+              <aside class="admin-live-preview" aria-label="Prévia do produto">
+                <h4>Prévia na loja</h4><div id="admin-product-preview"></div>
+              </aside>
+              </div>
+              <details id="admin-current-product-actions" class="admin-current-product-actions" hidden>
+                <summary>Ações do produto</summary><code></code>
+                <div class="admin-catalog-tools">
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="copyProductId(state.editingProductId)">Copiar ID</button>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="adminAdjustStock(state.editingProductId, 3)">+3 estoque</button>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="adminAdjustStock(state.editingProductId, 10)">+10 estoque</button>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="adminAdjustStock(state.editingProductId, 0)">Esgotar</button>
+                  <button type="button" class="btn btn-ghost btn-sm text-danger" onclick="adminDeleteProduct(state.editingProductId)">Apagar produto</button>
+                </div>
+              </details>
+            </section>
           </div>
+          <dialog id="admin-batch-dialog" class="admin-batch-dialog" aria-labelledby="admin-batch-title">
+            <form>
+              <h3 id="admin-batch-title">Ações em lote</h3>
+              <div class="admin-batch-fields">
+                <label>Ação<select name="operation" class="select"><option value="stock">Repor estoque</option><option value="category">Trocar categoria</option><option value="event">Vincular a um evento</option></select></label>
+                <label data-batch-field="stock">Unidades a adicionar<input type="number" name="amount" min="1" max="999999" step="1" value="3"></label>
+                <label data-batch-field="category" hidden>Nova categoria<select name="category" class="select"></select></label>
+                <label data-batch-field="event" hidden>Evento<select name="event" class="select"></select></label>
+              </div>
+              <p id="admin-batch-summary" role="status"></p><ul id="admin-batch-preview" class="admin-batch-preview"></ul>
+              <div class="form-actions"><button type="button" class="btn btn-ghost" name="closeBatch">Cancelar</button><button class="btn btn-primary" type="submit" name="apply">Aplicar alterações</button></div>
+            </form>
+          </dialog>
         </div>
 
         <!-- Tab: Pedidos -->
@@ -871,17 +914,18 @@
   <script src="./js/data/state.js"></script>
   <script src="./js/core/utils.js"></script>
   <script src="./js/services/auth.js"></script>
-  <script src="./js/services/database.js"></script>
+  <script src="./js/services/database.js?v=admin-workspace-1"></script>
   <script src="./js/app/navigation.js"></script>
   <script src="./js/app/auth-ui.js"></script>
   <script src="./js/features/market/market.js?v=product-badges-1"></script>
   <script src="./js/features/cart/cart.js"></script>
   <script src="./js/features/inventory/inventory.js"></script>
   <script src="./js/features/profile/profile.js"></script>
-  <script src="./js/features/admin/admin.js"></script>
-  <script src="./js/features/systems/extras.js"></script>
+  <script src="./js/features/admin/admin.js?v=admin-workspace-1"></script>
+  <script src="./js/features/admin/admin-workspace.js?v=1"></script>
+  <script src="./js/features/systems/extras.js?v=admin-workspace-1"></script>
   <script src="./js/features/systems/bank.js"></script>
   <script src="./js/app/start.js"></script>
-  <script type="module" src="./js/features/admin/firebase-ai.js"></script>
+  <script type="module" src="./js/features/admin/firebase-ai.js?v=admin-workspace-1"></script>
 </body>
 </html>

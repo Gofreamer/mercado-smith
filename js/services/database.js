@@ -51,6 +51,7 @@ function listenProducts() {
     if (state.currentView === 'market') renderProducts();
     if (state.currentView === 'blackmarket') renderBlackMarket();
     if (state.currentView === 'admin') renderAdminProducts();
+    adminRefreshMesaIfVisible();
     if (state.currentView === 'wishlist') renderWishlist();
     if (state.cartOpen) renderCart();
   });
@@ -71,6 +72,7 @@ function listenVendors() {
     if (state.currentView === 'market') renderProducts();
     if (state.currentView === 'admin' && typeof renderAdminVendors === 'function') renderAdminVendors();
     if (typeof fillVendorSelects === 'function') fillVendorSelects();
+    if (state.currentView === 'admin') renderAdminProducts();
   });
 }
 
@@ -81,6 +83,8 @@ function listenEvents() {
     if (state.currentView === 'market') renderProducts();
     if (state.currentView === 'blackmarket') renderBlackMarket();
     if (state.currentView === 'admin' && typeof renderAdminEvents === 'function') renderAdminEvents();
+    if (state.currentView === 'admin') adminRenderProductPreview();
+    adminRefreshMesaIfVisible();
     if (state.currentView === 'wishlist') renderWishlist();
   });
 }
@@ -113,6 +117,7 @@ function listenAllOrders() {
       .map(([id, order]) => ({ id, ...order }))
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     if (state.currentView === 'admin') renderAdminOrders();
+    adminRefreshMesaIfVisible();
   });
 }
 
