@@ -1565,6 +1565,85 @@ button, input, select, textarea {
   min-width: 0;
 }
 
+.mesa-queues {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.mesa-queue {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  text-align: left;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+.mesa-queue:hover { border-color: var(--primary); }
+.mesa-queue strong { color: var(--primary); font-size: 24px; font-variant-numeric: tabular-nums; }
+.admin-product-workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.6fr);
+  gap: 14px;
+  align-items: start;
+}
+.admin-product-workspace > .admin-card { width: auto; max-width: none; min-width: 0; }
+.admin-catalog-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.admin-catalog-filters, .admin-batch-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.admin-catalog-filters label, .admin-batch-fields label { display: grid; min-width: 0; gap: 4px; color: var(--text-secondary); font-size: 12px; }
+.admin-catalog-filters label:first-child { grid-column: 1 / -1; }
+.admin-catalog-filters :is(input,select), .admin-batch-fields :is(input,select) { width: 100%; min-width: 0; }
+.admin-batch-fields input { padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elevated); color: var(--text-primary); }
+.admin-catalog-tools, .admin-queue-filter { display: flex; align-items: center; gap: 7px 10px; flex-wrap: wrap; margin: 9px 0; font-size: 12px; }
+.admin-catalog-tools label { display: flex; align-items: center; gap: 5px; }
+.admin-catalog-list { max-height: 65vh; overflow: auto; display: grid; gap: 6px; padding: 2px; }
+.admin-catalog-row { display: flex; gap: 7px; align-items: center; }
+.admin-catalog-product {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 7px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.admin-catalog-product:hover, .admin-catalog-product[aria-pressed="true"] { border-color: var(--primary); }
+.admin-catalog-product small { display: block; color: var(--text-secondary); font-size: 11px; overflow-wrap: anywhere; }
+.admin-catalog-thumb { width: 44px; height: 44px; border-radius: 6px; overflow: hidden; background: var(--bg-card); }
+.admin-catalog-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.admin-product-edit-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(210px, 1fr); gap: 14px; align-items: start; }
+.admin-product-edit-grid form { min-width: 0; }
+.admin-product-editor .form-actions { position: sticky; bottom: 0; z-index: 3; padding: 9px 0; background: var(--bg-card); }
+.admin-live-preview { min-width: 0; }
+.admin-live-preview h4 { margin: 0 0 8px; color: var(--text-secondary); }
+.admin-live-preview .product-card { cursor: default; }
+.admin-live-preview .product-card:hover { transform: none; }
+.admin-ai-tools summary, .admin-current-product-actions summary { cursor: pointer; font-weight: 600; }
+.admin-ai-tools[open] summary { margin-bottom: 10px; }
+.admin-current-product-actions { margin-top: 8px; }
+.admin-current-product-actions code { display: block; margin-top: 5px; overflow-wrap: anywhere; }
+.admin-current-product-actions[hidden], .admin-batch-fields [hidden] { display: none; }
+.admin-batch-dialog { width: min(640px, calc(100% - 24px)); max-height: 86vh; margin: auto; padding: 18px; color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; }
+.admin-batch-dialog::backdrop { background: #090b11b8; }
+.admin-batch-dialog h3 { margin: 0 0 12px; }
+.admin-batch-dialog #admin-batch-summary { margin-top: 10px; font-size: 13px; }
+.admin-batch-preview { max-height: 40vh; overflow: auto; list-style: none; padding: 0; margin: 8px 0; }
+.admin-batch-preview li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.admin-batch-preview li span:last-child { color: var(--text-secondary); }
+@media (max-width: 1120px) { .admin-product-edit-grid { grid-template-columns: 1fr; } .admin-live-preview { max-width: 340px; } }
+@media (max-width: 760px) { .admin-product-workspace { grid-template-columns: 1fr; } .admin-catalog-list { max-height: 42vh; } }
+
 .admin-split > .admin-card {
   width: 100%;
   max-width: 560px; /* form não estica demais */
