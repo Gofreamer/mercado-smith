@@ -3,7 +3,7 @@ const root=path.join(__dirname,'..');
 function setup(db={ref(){throw Error('Unexpected database access')}}){
   const els=new Map(); const field=id=>{if(!els.has(id))els.set(id,{value:'',hidden:false,innerHTML:'',textContent:'',classList:{add(){},remove(){},toggle(){}},setAttribute(){},reset(){},focus(){},scrollIntoView(){}});return els.get(id)};
   const scope=vm.createContext({document:{getElementById:field,querySelectorAll:()=>[],addEventListener(){}},window:{addEventListener(){}},state:{allUsers:{}},db,showToast(){},pushAdminLog(){},generateId:()=> 'entry',gsConfirm:async()=>true,console});
-  for(const file of ['js/core/utils.js','js/features/systems/bank.js','js/features/admin/admin-cards.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),scope);
+  for(const file of ['js/core/utils.js','js/features/systems/bank.js','js/features/systems/card-design.js','js/features/admin/admin-cards.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),scope);
   scope.showToast=()=>{};scope.gsConfirm=async()=>true;
   const model=vm.runInContext('adminCards',scope);
   field('admin-card-status').value='active';field('admin-sub-days').value='30';field('admin-sub-use-real').value='false';field('ac-money-kind').value='credit';
