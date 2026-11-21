@@ -14,6 +14,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <link href="./css/admin-cards.css?v=1" rel="stylesheet"/>
 </head>
 <body>
 
@@ -485,103 +486,74 @@
 
         <!-- Tab: Cartões -->
         <div id="admin-tab-cards" class="admin-tab-panel hidden">
-          <button class="btn btn-ghost btn-sm" type="button" onclick="switchAdminTab('players')">Consultar ficha de jogador</button>
-          <div class="admin-layout">
-            <div class="admin-card">
-              <h3>Gerir cartão do jogador</h3>
-              <p class="text-muted admin-hint">Busque por UID ou e-mail. Altere titular, benefício permanente, status; credite ou debite.</p>
-              <div class="form-group">
-                <label>UID ou E-mail</label>
-                <div style="display:flex;gap:8px">
-                  <input type="text" id="admin-card-user" placeholder="UID ou email" style="flex:1"/>
-                  <button type="button" class="btn btn-ghost btn-sm" onclick="adminLoadCardInfo()">Carregar</button>
+          <header class="ac-heading"><div><span class="ac-eyebrow">CENTRAL FINANCEIRA</span><h2>Cartões dos jogadores</h2><p>Um lugar para cuidar do cartão, dos lançamentos e dos benefícios.</p></div><span class="ac-local-tag">Gestão da mesa</span></header>
+          <div class="ac-workspace">
+            <aside class="ac-directory" aria-label="Selecionar jogador">
+              <div class="ac-directory-top"><h3>Jogadores <span id="ac-player-count">0</span></h3>
+                <label for="ac-player-search" class="sr-only">Buscar jogador por nome, e-mail ou UID</label><input id="ac-player-search" type="search" placeholder="Buscar jogador…" oninput="renderAdminCardDirectory()" autocomplete="off"/>
+                <label for="ac-player-status" class="sr-only">Filtrar cartões por status</label><select id="ac-player-status" onchange="renderAdminCardDirectory()"><option value="">Todos os cartões</option><option value="active">Ativos</option><option value="suspended">Suspensos</option><option value="cancelled">Cancelados</option></select>
+              </div>
+              <div id="ac-player-list" class="ac-player-list" aria-label="Jogadores encontrados"></div>
+              <details class="ac-direct-search"><summary>Buscar por UID ou e-mail</summary><form onsubmit="event.preventDefault();adminLoadCardInfo()"><label for="admin-card-user">Identificador do jogador</label><input id="admin-card-user" placeholder="UID ou e-mail completo"/><button class="btn btn-ghost btn-sm" type="submit" data-ac-lock>Localizar cartão</button></form></details>
+            </aside>
+            <div class="ac-main">
+              <p id="ac-load-status" class="ac-load-status" role="status" aria-live="polite"></p>
+              <div id="ac-empty" class="ac-empty"><span class="ac-empty-mark" aria-hidden="true">GS</span><h3>Escolha um jogador</h3><p>O cartão, o saldo e os benefícios aparecem aqui.<br>Busque pelo nome e selecione na lista ao lado.</p></div>
+              <div id="ac-selected" hidden>
+                <div class="ac-person-heading"><div><h3 id="ac-player-name"></h3><p id="ac-player-email"></p></div><button class="btn btn-ghost btn-sm" type="button" onclick="adminReloadCard()" data-ac-lock>↻ Atualizar</button></div>
+                <div class="ac-content-grid">
+                  <section class="ac-overview" aria-label="Resumo do cartão">
+                    <input type="hidden" id="admin-card-uid"/>
+                    <div id="admin-card-preview" class="ac-card-preview"></div>
+                    <div class="ac-stats"><div><span>Saldo atual</span><strong id="ac-balance"></strong></div><div><span>Margem até o piso</span><strong id="ac-margin"></strong><small>Piso de saldo: −$ 200.000</small></div><div><span>Assinaturas ativas</span><strong id="ac-subs-count"></strong></div></div>
+                    <div id="ac-quick-status" class="ac-quick-status"></div>
+                    <p class="ac-hint">Suspender ou cancelar bloqueia novos gastos no cartão. Saldo, itens e assinaturas são preservados.</p>
+                    <details class="ac-maintenance"><summary>Manutenção do extrato</summary><p>Apaga o histórico de lançamentos deste jogador. O saldo fica como está.</p><button class="btn btn-ghost btn-sm text-danger" type="button" onclick="adminCardsClearLedger()" data-ac-lock>Limpar extrato…</button></details>
+                  </section>
+                  <section class="ac-editor" aria-label="Gerenciar cartão">
+                    <div class="ac-tabs" role="tablist" aria-label="Seções do cartão">
+                      <button type="button" id="ac-tab-data" role="tab" aria-selected="true" aria-controls="ac-pane-data" onclick="adminCardsTab('data')">Dados do cartão</button>
+                      <button type="button" id="ac-tab-money" role="tab" aria-selected="false" aria-controls="ac-pane-money" onclick="adminCardsTab('money')">Movimentação</button>
+                      <button type="button" id="ac-tab-subs" role="tab" aria-selected="false" aria-controls="ac-pane-subs" onclick="adminCardsTab('subs')">Assinaturas</button>
+                    </div>
+                    <div id="ac-pane-data" role="tabpanel" aria-labelledby="ac-tab-data" class="ac-pane">
+                      <div class="ac-section-heading"><h3>Identidade e benefícios</h3><p>Personalize o cartão sem alterar a conta do jogador.</p></div>
+                      <form id="ac-card-form" onsubmit="adminSaveCard(event)" oninput="adminCardsPreview()"><fieldset data-ac-fields disabled>
+                        <div class="form-group"><label for="admin-card-holder">Titular no cartão</label><input id="admin-card-holder" maxlength="60" placeholder="Nome RP do titular"/></div>
+                        <div class="form-group"><label for="admin-card-status">Estado do cartão</label><select id="admin-card-status"><option value="active">Ativo · gastos liberados</option><option value="suspended">Suspenso · bloqueio temporário</option><option value="cancelled">Cancelado · gastos bloqueados</option></select></div>
+                        <div class="form-group"><label for="admin-card-benefit">Benefício permanente</label><textarea id="admin-card-benefit" rows="3" maxlength="160" placeholder="Ex.: acesso VIP e desconto em transporte"></textarea><small class="ac-hint">Fica no cartão até você alterar. Para algo com prazo, use Assinaturas.</small></div>
+                        <div class="ac-form-footer"><span id="ac-card-draft" class="ac-hint" aria-live="polite">Nenhuma alteração pendente.</span><button type="submit" class="btn btn-primary">Salvar cartão</button></div>
+                      </fieldset></form>
+                    </div>
+                    <div id="ac-pane-money" role="tabpanel" aria-labelledby="ac-tab-money" class="ac-pane" hidden>
+                      <div class="ac-section-heading"><h3>Novo lançamento</h3><p>Confira o jogador e o saldo previsto antes de confirmar.</p></div>
+                      <form id="ac-money-form" onsubmit="adminCardCredit(event)" oninput="adminCardsMoneyPreview()"><fieldset data-ac-fields disabled>
+                        <div class="ac-money-fields"><div class="form-group"><label for="ac-money-kind">Operação</label><select id="ac-money-kind"><option value="credit">Crédito · adicionar</option><option value="debit">Débito · retirar</option></select></div><div class="form-group"><label for="admin-card-credit-amount">Valor ($)</label><input id="admin-card-credit-amount" type="number" min="0.01" step="0.01" required placeholder="0,00"/></div></div>
+                        <div class="form-group"><label for="admin-card-credit-note">Descrição no extrato</label><input id="admin-card-credit-note" maxlength="120" placeholder="Ex.: bônus de missão ou multa"/></div>
+                        <div id="ac-money-preview" class="ac-money-preview" role="status" aria-live="polite"></div>
+                        <button type="submit" class="btn btn-primary">Revisar lançamento</button>
+                      </fieldset></form>
+                      <div class="ac-section-heading ac-separated"><h3>Lançamentos recentes</h3><p>Últimos 8 registros do extrato do jogador.</p></div><div id="ac-ledger"></div>
+                    </div>
+                    <div id="ac-pane-subs" role="tabpanel" aria-labelledby="ac-tab-subs" class="ac-pane" hidden>
+                      <div class="ac-section-heading"><h3>Benefícios com prazo</h3><p>No RPG, a mesa controla o término. No relógio real, a assinatura expira automaticamente.</p></div>
+                      <div class="ac-subs-toolbar"><label for="ac-sub-filter" class="sr-only">Filtrar assinaturas</label><select id="ac-sub-filter" onchange="renderAdminSubsList(adminCards.user)"><option value="active">Ativas</option><option value="all">Todas</option><option value="expired">Expiradas</option></select><button type="button" class="btn btn-ghost btn-sm" onclick="adminCardsNewSubscription()" data-ac-lock>+ Nova assinatura</button></div>
+                      <div id="admin-subs-list"></div>
+                      <details id="ac-sub-editor" class="ac-sub-editor"><summary id="ac-sub-editor-title">Adicionar assinatura</summary>
+                        <form id="ac-sub-form" onsubmit="adminAddSubscription(event)" oninput="adminCardsSubscriptionPreview()"><fieldset data-ac-fields disabled>
+                          <div class="form-group"><label for="admin-sub-name">Nome</label><input id="admin-sub-name" maxlength="80" required placeholder="Ex.: Seguro de carga"/></div>
+                          <div class="form-group"><label for="admin-sub-desc">O que ela oferece</label><input id="admin-sub-desc" maxlength="160" placeholder="Descrição opcional"/></div>
+                          <div class="ac-money-fields"><div class="form-group"><label for="admin-sub-days">Duração em dias</label><input id="admin-sub-days" type="number" min="1" max="3650" value="30" required/></div><div class="form-group"><label for="admin-sub-use-real">Como o tempo passa</label><select id="admin-sub-use-real"><option value="false">Calendário do RPG</option><option value="true">Relógio real</option></select></div></div>
+                          <div class="form-group" id="ac-sub-date-wrap" hidden><label for="ac-sub-date">Expiração no relógio real</label><input id="ac-sub-date" type="datetime-local"/></div>
+                          <div class="form-group"><label for="admin-sub-ends-label">Fim no RPG / observação de prazo</label><input id="admin-sub-ends-label" maxlength="80" placeholder="Ex.: até o fim do torneio"/></div>
+                          <p id="ac-sub-schedule-hint" class="ac-notice" role="status"></p>
+                          <div class="ac-form-footer"><button type="button" class="btn btn-ghost btn-sm" onclick="adminCardsNewSubscription(false)">Limpar / cancelar</button><button id="ac-sub-save" type="submit" class="btn btn-primary">Adicionar assinatura</button></div>
+                        </fieldset></form>
+                      </details>
+                    </div>
+                  </section>
                 </div>
               </div>
-              <input type="hidden" id="admin-card-uid" value=""/>
-              <div id="admin-card-preview" class="admin-card-preview"></div>
-              <form onsubmit="adminSaveCard(event)">
-                <div class="form-group">
-                  <label>Nome no cartão (titular)</label>
-                  <input type="text" id="admin-card-holder" maxlength="60" placeholder="Nome RP do titular"/>
-                </div>
-                <div class="form-group">
-                  <label>Benefício permanente</label>
-                  <input type="text" id="admin-card-benefit" maxlength="160" placeholder="Ex: acesso VIP portão B · desconto fixo em transporte"/>
-                  <p class="text-muted" style="font-size:11px;margin-top:4px">Privilege fixo do cartão. Use assinaturas abaixo para benefícios com prazo (ex.: 30 dias).</p>
-                </div>
-                <div class="form-group">
-                  <label>Status</label>
-                  <select id="admin-card-status">
-                    <option value="active">Ativo</option>
-                    <option value="suspended">Suspenso</option>
-                    <option value="cancelled">Cancelado</option>
-                  </select>
-                </div>
-                <div style="display:flex;flex-wrap:wrap;gap:8px">
-                  <button type="submit" class="btn btn-primary">Salvar cartão</button>
-                  <button type="button" class="btn btn-ghost btn-sm text-danger" onclick="adminClearBenefit()">Apagar benefício</button>
-                </div>
-              </form>
-              <div class="admin-card-actions" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
-                <button type="button" class="btn btn-ghost btn-sm" onclick="adminSetCardStatus('active')">Reativar</button>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="adminSetCardStatus('suspended')">Suspender</button>
-                <button type="button" class="btn btn-ghost btn-sm text-danger" onclick="adminSetCardStatus('cancelled')">Cancelar cartão</button>
-              </div>
-            </div>
-            <div class="admin-card">
-              <h3>Assinaturas do cartão</h3>
-              <p class="text-muted admin-hint">Benefícios temporários separados do privilege permanente. Por padrão o tempo é o do RPG: você remove quando os X dias in-world acabarem. Opcional: usar relógio real pra auto-expirar.</p>
-              <form onsubmit="adminAddSubscription(event)">
-                <div class="form-group">
-                  <label>Nome da assinatura</label>
-                  <input type="text" id="admin-sub-name" maxlength="80" required placeholder="Ex: Plano VIP 30 dias · Seguro carga"/>
-                </div>
-                <div class="form-group">
-                  <label>Descrição (opcional)</label>
-                  <input type="text" id="admin-sub-desc" maxlength="160" placeholder="O que a assinatura cobre"/>
-                </div>
-                <div class="form-row">
-                  <div class="form-group">
-                    <label>Duração (dias)</label>
-                    <input type="number" id="admin-sub-days" min="1" max="3650" value="30" required placeholder="30"/>
-                  </div>
-                  <div class="form-group">
-                    <label>Relógio</label>
-                    <select id="admin-sub-use-real">
-                      <option value="false" selected>Calendário do RPG (mesa controla)</option>
-                      <option value="true">Relógio real (auto-expira)</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label>Fim in-world (texto, opcional)</label>
-                  <input type="text" id="admin-sub-ends-label" maxlength="80" placeholder="Ex: até 21 de Brumário, Ano 3"/>
-                </div>
-                <button type="submit" class="btn btn-primary">Adicionar assinatura</button>
-              </form>
-              <hr style="border:none;border-top:1px solid var(--border);margin:16px 0"/>
-              <h4 style="margin:0 0 8px;font-size:13px">Assinaturas deste cartão</h4>
-              <div id="admin-subs-list">
-                <p class="text-muted" style="font-size:13px">Carregue um jogador para ver assinaturas.</p>
-              </div>
-            </div>
-            <div class="admin-card">
-              <h3>Lançamento no cartão</h3>
-              <p class="text-muted admin-hint">Positivo = crédito. Negativo = débito (saldo pode ficar negativo até −$ 200.000).</p>
-              <form onsubmit="adminCardCredit(event)">
-                <div class="form-group">
-                  <label>Valor ($)</label>
-                  <input type="number" id="admin-card-credit-amount" step="0.01" required placeholder="500 ou -150"/>
-                </div>
-                <div class="form-group">
-                  <label>Nota no extrato</label>
-                  <input type="text" id="admin-card-credit-note" maxlength="120" placeholder="Bônus de missão / multa de trânsito"/>
-                </div>
-                <button type="submit" class="btn btn-primary">Lançar</button>
-              </form>
-              <hr style="border:none;border-top:1px solid var(--border);margin:16px 0"/>
-              <p class="text-muted admin-hint">Manutenção Firebase</p>
-              <button type="button" class="btn btn-ghost btn-sm text-danger" onclick="(function(){var u=document.getElementById('admin-card-uid').value;if(u)adminClearPlayerLedger(u);else showToast('Carregue um jogador.','error');})()">Limpar extrato do jogador</button>
             </div>
           </div>
         </div>
@@ -956,21 +928,22 @@
   <script src="./js/data/state.js"></script>
   <script src="./js/core/utils.js"></script>
   <script src="./js/services/auth.js"></script>
-  <script src="./js/services/database.js?v=admin-operations-1"></script>
+  <script src="./js/services/database.js?v=admin-cards-1"></script>
   <script src="./js/app/navigation.js?v=admin-operations-1"></script>
   <script src="./js/app/auth-ui.js"></script>
   <script src="./js/features/market/market.js?v=product-badges-1"></script>
   <script src="./js/features/cart/cart.js?v=admin-operations-1"></script>
   <script src="./js/features/inventory/inventory.js"></script>
   <script src="./js/features/profile/profile.js"></script>
-  <script src="./js/features/admin/admin.js?v=admin-operations-1"></script>
+  <script src="./js/features/admin/admin.js?v=admin-cards-1"></script>
   <script src="./js/features/admin/admin-workspace.js?v=1"></script>
   <script src="./js/features/admin/admin-operations.js?v=1"></script>
   <script src="./js/features/admin/admin-maintenance.js?v=1"></script>
   <script src="./js/features/admin/admin-campaign.js?v=2"></script>
   <script src="./js/features/admin/admin-review.js?v=1"></script>
   <script src="./js/features/systems/extras.js?v=admin-operations-2"></script>
-  <script src="./js/features/systems/bank.js"></script>
+  <script src="./js/features/systems/bank.js?v=admin-cards-1"></script>
+  <script src="./js/features/admin/admin-cards.js?v=1"></script>
   <script src="./js/app/start.js?v=admin-operations-1"></script>
   <script type="module" src="./js/features/admin/firebase-ai.js?v=admin-workspace-1"></script>
 </body>
