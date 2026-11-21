@@ -3,7 +3,7 @@ function setup(profile={name:'Jogador',balance:100}){
   const elements=new Map();const field=id=>{if(!elements.has(id))elements.set(id,{value:'',innerHTML:'',hidden:false,disabled:false,contains:()=>false,setAttribute(){},focus(){}});return elements.get(id)};
   const calls=[];let confirmations=0;
   const scope=vm.createContext({document:{getElementById:field,querySelectorAll:()=>[],activeElement:null,addEventListener(){}},state:{user:{uid:'player'},profile,orders:[]},db:{ref(p=''){return {once:async()=>({val:()=>structuredClone(profile)}),update:async data=>calls.push({p,data}),transaction:async fn=>{const next=fn(profile);calls.push({p,next});return {committed:!!next,snapshot:{val:()=>next}};}}}},structuredClone,console});
-  for(const file of ['js/core/utils.js','js/features/systems/bank.js','js/features/systems/bank-view.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),scope);
+  for(const file of ['js/core/utils.js','js/features/systems/bank.js','js/features/systems/card-design.js','js/features/systems/bank-view.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),scope);
   scope.showToast=()=>{};scope.pushAdminLog=()=>{};scope.gsConfirm=async()=>{confirmations++;return false};scope.generateId=()=> 'entry';
   const ui=vm.runInContext('bankUi',scope);scope.bankResetUi('player');return {scope,ui,field,calls,confirmations:()=>confirmations};
 }

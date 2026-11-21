@@ -150,7 +150,8 @@ function adminCardsFillCard() {
 function adminCardsPreview() {
   if (!adminCards.user) return;
   const status = acValue('admin-card-status'), dirty = adminCardsCardDirty();
-  acEl('admin-card-preview').innerHTML = `<div class="ac-plastic ${status}"><div class="ac-plastic-top"><strong>GS <span>GLOBAL SMITH</span></strong><span class="ac-card-state">${escapeHTML(cardStatusLabel(status))}</span></div><span class="ac-chip" aria-hidden="true">▥</span><div class="ac-card-number">${getCardNumber(adminCards.uid)}</div><div class="ac-plastic-bottom"><div><small>TITULAR</small><strong>${escapeHTML(acValue('admin-card-holder').trim() || adminCards.user.name || 'Sem titular')}</strong></div><div><small>VALIDADE</small><strong>${getCardExpiry(adminCards.user)}</strong></div></div></div><p class="ac-preview-caption">${dirty ? 'Prévia · salve para aplicar ao jogador' : 'Cartão atual do jogador'}</p>`;
+  const visual={...adminCards.user,card:{...(adminCards.user.card||{}),holderName:acValue('admin-card-holder').trim()||adminCards.user.name,status}};
+  acEl('admin-card-preview').innerHTML=renderSmithCard(visual,adminCards.uid,[])+'<p class="ac-preview-caption">'+(dirty?'Prévia · salve para aplicar ao jogador':'Cartão atual do jogador')+'</p><button type="button" class="btn btn-ghost btn-sm scd-admin-open" onclick="openAdminSmithCardDesigner()" data-ac-lock>Personalizar aparência</button>';
   acEl('ac-card-draft').textContent = dirty ? 'Alterações ainda não salvas.' : 'Nenhuma alteração pendente.';
 }
 function adminCardsRenderSummary() {
