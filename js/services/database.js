@@ -111,6 +111,7 @@ function listenAllUsers() {
     state.allUsers = snap.val() || {};
     if (state.currentView === 'admin') {
       if (typeof renderAdminPlayers === 'function') renderAdminPlayers();
+      if (typeof renderAdminCardDirectory === 'function') renderAdminCardDirectory();
     }
   });
 }

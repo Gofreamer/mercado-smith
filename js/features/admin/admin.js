@@ -357,7 +357,7 @@ function switchAdminTab(tab, btn) {
   if (tab === 'events') renderAdminEvents();
   if (tab === 'vendors') { renderAdminVendors(); fillVendorSelects(); }
   if (tab === 'loans') renderAdminLoans();
-  if (tab === 'cards') { /* form only */ }
+  if (tab === 'cards') initAdminCardsWorkspace();
   if (tab === 'log') renderAdminLog();
   if (tab === 'players') renderAdminPlayers();
   if (tab === 'access') { /* form only */ }
