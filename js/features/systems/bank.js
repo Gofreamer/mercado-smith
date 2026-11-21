@@ -152,6 +152,7 @@ function setRpSpendAmount(v) {
   if (el) {
     el.value = v;
     el.focus();
+    if (typeof bankCaptureSpend === 'function') bankCaptureSpend();
   }
 }
 
@@ -205,418 +206,106 @@ function ledgerTypeLabel(type) {
   return map[type] || type || 'Movimento';
 }
 
-function renderBank() {
-  const root = document.getElementById('bank-root');
-  if (!root) return;
-
-  if (!state.profile || !state.user) {
-    root.innerHTML = `
-      <div class="empty-state empty-state-lg">
-        <div class="empty-icon">🏦</div>
-        <h3>Carregando conta GS…</h3>
-        <p>Sincronizando com o núcleo financeiro.</p>
-      </div>`;
-    return;
-  }
-
-  const rank = getUserRank(state.profile, state.orders);
-  const balance = Number(state.profile.balance) || 0;
-  const cardNo = getCardNumber(state.user.uid);
-  const expiry = getCardExpiry(state.profile);
-  const cardStatus = getCardStatus(state.profile);
-  const holder = getCardHolder(state.profile);
-  const benefit = getCardBenefit(state.profile);
-  const subscriptions = getCardSubscriptions(state.profile);
-  const ledger = getLedgerEntries().slice(0, 40);
-  const loans = getLoans();
-  const activeLoan = loans.find(l => l.status === 'active');
-  const pendingLoan = loans.find(l => l.status === 'pending');
-  const debt = activeLoan ? Number(activeLoan.remaining || activeLoan.amount) || 0 : 0;
-  const cardOk = cardStatus === 'active';
-  const catOptions = Object.entries(RP_SPEND_CATEGORIES)
-    .map(([k, v]) => `<option value="${k}">${v}</option>`)
-    .join('');
-
-  root.innerHTML = `
-    <div class="bank-layout">
-      <div class="bank-main">
-        <div class="gs-card ${cardStatus !== 'active' ? 'gs-card-' + cardStatus : ''}" style="--rank-color:${rank.color}">
-          <div class="gs-card-top">
-            <span class="gs-card-brand">GLOBAL SMITH</span>
-            <span class="gs-card-chip"></span>
-          </div>
-          ${cardStatus !== 'active' ? `<div class="gs-card-stamp">${cardStatusLabel(cardStatus).toUpperCase()}</div>` : ''}
-          <div class="gs-card-number">${cardStatus === 'cancelled' ? '•••• •••• •••• ••••' : cardNo}</div>
-          <div class="gs-card-bottom">
-            <div>
-              <div class="gs-card-label">Titular</div>
-              <div class="gs-card-name">${escapeHTML(holder)}</div>
-            </div>
-            <div>
-              <div class="gs-card-label">Validade</div>
-              <div class="gs-card-name">${cardStatus === 'cancelled' ? '—' : expiry}</div>
-            </div>
-            <div>
-              <div class="gs-card-label">Rank</div>
-              <div class="gs-card-name" style="color:${rank.color}">${rank.label}</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="bank-card-meta">
-          <span class="status-pill ${cardStatusClass(cardStatus)}">${cardStatusLabel(cardStatus)}</span>
-        </div>
-        ${benefit ? `
-          <div class="bank-benefit-card">
-            <div class="bank-benefit-label">Benefício permanente</div>
-            <div class="bank-benefit-text">✦ ${escapeHTML(benefit)}</div>
-          </div>
-        ` : ''}
-        ${subscriptions.length ? `
-          <div class="bank-subs-card">
-            <div class="bank-benefit-label">Assinaturas ativas</div>
-            <div class="bank-subs-list">
-              ${subscriptions.map(s => `
-                <div class="bank-sub-item">
-                  <div class="bank-sub-name">◆ ${escapeHTML(s.name || 'Assinatura')}</div>
-                  ${s.description ? `<div class="bank-sub-desc">${escapeHTML(s.description)}</div>` : ''}
-                  <div class="bank-sub-expiry">${escapeHTML(formatSubExpiry(s))}</div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        ` : ''}
-
-        <div class="bank-stats">
-          <div class="bank-stat">
-            <div class="bank-stat-label">Saldo disponível${balance < 0 ? ' (no crédito)' : ''}</div>
-            <div class="bank-stat-value ${balance < 0 ? 'warning' : 'success'}">${formatMoney(balance)}</div>
-          </div>
-          <div class="bank-stat">
-            <div class="bank-stat-label">Em dívida</div>
-            <div class="bank-stat-value ${debt > 0 ? 'warning' : ''}">${formatMoney(debt)}</div>
-          </div>
-          <div class="bank-stat">
-            <div class="bank-stat-label">Movimentos</div>
-            <div class="bank-stat-value">${ledger.length}${getLedgerEntries().length > 40 ? '+' : ''}</div>
-          </div>
-        </div>
-
-        <div class="bank-section">
-          <h3>Extrato</h3>
-          ${ledger.length === 0 ? `
-            <div class="empty-state" style="padding:20px 0">
-              <p>Conta quieta. Compras, gastos no cartão e créditos do núcleo aparecem aqui.</p>
-              <button class="btn btn-ghost btn-sm" onclick="showView('market')">Explorar o catálogo</button>
-            </div>
-          ` : `
-            <div class="ledger-list">
-              ${ledger.map(e => {
-                const amt = Number(e.amount) || 0;
-                const pos = amt >= 0;
-                const cat = e.category ? (RP_SPEND_CATEGORIES[e.category] || e.category) : '';
-                return `
-                  <div class="ledger-row">
-                    <div class="ledger-info">
-                      <div class="ledger-label">${escapeHTML(e.label || ledgerTypeLabel(e.type))}</div>
-                      <div class="ledger-meta">${formatDateTime(e.createdAt)} · ${escapeHTML(ledgerTypeLabel(e.type))}${cat ? ' · ' + escapeHTML(cat) : ''}</div>
-                    </div>
-                    <div class="ledger-amount ${pos ? 'success' : 'text-danger'}">${pos ? '+' : ''}${formatMoney(amt)}</div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          `}
-        </div>
-      </div>
-
-      <div class="bank-side">
-        <div class="bank-panel">
-          <h3>Gasto no cartão</h3>
-          <p class="text-muted bank-hint">Despesas fora do mercado ou transferência a NPC/pessoa: transporte, propina, pagamento a July…</p>
-          ${!cardOk ? `
-            <div class="loan-pending">
-              <p>Cartão <strong>${cardStatusLabel(cardStatus)}</strong>. Gastos no cartão estão bloqueados.</p>
-              <p class="text-muted" style="font-size:12px">Fale com o núcleo GS (admin) para reativar.</p>
-            </div>
-          ` : `
-            <form onsubmit="cardRpSpend(event)">
-              <div class="form-group">
-                <label>Categoria</label>
-                <select id="rp-spend-cat" class="select" required>${catOptions}</select>
-              </div>
-              <div class="form-group">
-                <label>Valor ($)</label>
-                <div class="rp-amount-chips">
-                  <button type="button" class="btn btn-ghost btn-sm" onclick="setRpSpendAmount(50)">$ 50</button>
-                  <button type="button" class="btn btn-ghost btn-sm" onclick="setRpSpendAmount(100)">$ 100</button>
-                  <button type="button" class="btn btn-ghost btn-sm" onclick="setRpSpendAmount(500)">$ 500</button>
-                  <button type="button" class="btn btn-ghost btn-sm" onclick="setRpSpendAmount(1000)">$ 1.000</button>
-                </div>
-                <input type="number" id="rp-spend-amount" required min="0.01" step="0.01" placeholder="Ex: 150"/>
-              </div>
-              <div class="form-group">
-                <label>Descrição</label>
-                <input type="text" id="rp-spend-desc" maxlength="120" required placeholder="Ex: táxi ao porto · transferência para July"/>
-              </div>
-              <button type="submit" class="btn btn-primary btn-full">Debitar no cartão</button>
-            </form>
-          `}
-        </div>
-
-        <div class="bank-panel">
-          <h3>Empréstimo / crédito</h3>
-          <p class="text-muted bank-hint">O núcleo GS avalia pedidos. Rank mais alto facilita liberação pela mesa.</p>
-          ${activeLoan ? `
-            <div class="loan-active">
-              <div class="loan-active-label">Empréstimo ativo</div>
-              <div class="loan-active-value">${formatMoney(debt)} restantes</div>
-              <p class="text-muted" style="font-size:12px;margin:6px 0 10px">Original: ${formatMoney(activeLoan.amount)}</p>
-              <div class="form-group">
-                <label>Pagar (do saldo)</label>
-                <input type="number" id="loan-pay-amount" class="search-input" min="1" step="0.01" max="${debt}" value="${Math.min(debt, balance)}"/>
-              </div>
-              <button class="btn btn-primary btn-sm" onclick="payLoan('${activeLoan.id}')">Quitar parcial / total</button>
-            </div>
-          ` : pendingLoan ? `
-            <div class="loan-pending">
-              <p>Pedido em análise: <strong>${formatMoney(pendingLoan.amount)}</strong></p>
-              <p class="text-muted" style="font-size:12px">${escapeHTML(pendingLoan.reason || '')}</p>
-              <button class="btn btn-ghost btn-sm" onclick="cancelLoanRequest('${pendingLoan.id}')">Cancelar pedido</button>
-            </div>
-          ` : `
-            <form onsubmit="requestLoan(event)">
-              <div class="form-group">
-                <label>Valor solicitado ($)</label>
-                <input type="number" id="loan-amount" required min="100" step="100" placeholder="Ex: 5000"/>
-              </div>
-              <div class="form-group">
-                <label>Motivo (in-world)</label>
-                <input type="text" id="loan-reason" maxlength="120" placeholder="Operação, equipamento, favor…"/>
-              </div>
-              <button type="submit" class="btn btn-primary btn-full">Solicitar ao núcleo</button>
-            </form>
-          `}
-        </div>
-
-        <div class="bank-panel">
-          <h3>Histórico de crédito</h3>
-          ${loans.length === 0 ? `<p class="text-muted" style="font-size:13px">Nenhum empréstimo registrado.</p>` : `
-            <div class="loan-history">
-              ${loans.slice(0, 8).map(l => `
-                <div class="loan-hist-row">
-                  <span>${formatMoney(l.amount)}</span>
-                  <span class="status-pill ${loanStatusClass(l.status)}">${escapeHTML(loanStatusLabel(l.status))}</span>
-                </div>
-              `).join('')}
-            </div>
-          `}
-        </div>
-
-        <div class="bank-panel bank-panel-muted">
-          <p class="bank-footnote">Cartão RP · gastos debitam o saldo (pode ficar negativo até −${typeof balanceFloorLabel === 'function' ? balanceFloorLabel() : '200.000'}). Status, benefício e assinaturas são do núcleo GS.</p>
-        </div>
-      </div>
-    </div>
-  `;
+let bankActionBusy = false;
+function bankPositiveAmount(value) {
+  const n=Number(value),cents=Math.round(n*100);
+  return Number.isFinite(n)&&n>0&&Number.isSafeInteger(cents)&&cents>0&&Math.abs(n*100-cents)<0.00001?cents/100:null;
 }
-
-async function cardRpSpend(e) {
-  e.preventDefault();
-  if (!state.user || !state.profile) return;
-
-  const status = getCardStatus(state.profile);
-  if (status !== 'active') {
-    showToast('Cartão ' + cardStatusLabel(status).toLowerCase() + '. Operação bloqueada.', 'error');
-    return;
-  }
-
-  const category = document.getElementById('rp-spend-cat')?.value || 'outros';
-  const amount = parseFloat(document.getElementById('rp-spend-amount')?.value);
-  const desc = (document.getElementById('rp-spend-desc')?.value || '').trim().slice(0, 120);
-
-  if (isNaN(amount) || amount <= 0) {
-    showToast('Informe um valor válido.', 'error');
-    return;
-  }
-  if (!desc) {
-    showToast('Descreva o gasto.', 'error');
-    return;
-  }
-
-  const bal = Number(state.profile.balance) || 0;
-  const newBal = bal - amount;
-  const floorErr = validateBalanceFloor(newBal);
-  if (floorErr) {
-    const room = bal - BALANCE_FLOOR;
-    showToast(
-      room <= 0
-        ? `Limite de crédito esgotado (−${balanceFloorLabel()}). Fale com o núcleo GS.`
-        : `Acima do limite. Você pode gastar até ${formatMoney(room)} (piso −${balanceFloorLabel()}).`,
-      'error'
-    );
-    return;
-  }
-
-  const catLabel = RP_SPEND_CATEGORIES[category] || category;
-  const goesNegative = newBal < 0;
-  const okSpend = await gsConfirm({
-    title: goesNegative ? 'Débito no cartão (saldo negativo)' : 'Débito no cartão',
-    body: `Debitar <strong>${formatMoney(amount)}</strong>?<br>${escapeHTML(catLabel)} — ${escapeHTML(desc)}${
-      goesNegative
-        ? `<br><br><span class="text-danger">Saldo ficará em ${formatMoney(newBal)} (limite −${balanceFloorLabel()}).</span>`
-        : ''
-    }`,
-    confirmLabel: goesNegative ? 'Debitar no crédito' : 'Debitar',
-    danger: true
+function bankLoanRemaining(loan) {return Math.max(0,Number(loan?.remaining ?? loan?.amount)||0);}
+async function bankRunAction(action) {
+  if(bankActionBusy||!state.user||!state.profile)return;
+  const uid=state.user.uid;bankActionBusy=true;
+  if(typeof bankSetBusy==='function')bankSetBusy(true);
+  try {await action(uid);} catch(error){console.error(error);showToast(error.message||'Não foi possível concluir a operação.','error');}
+  finally {bankActionBusy=false;if(typeof bankSetBusy==='function')bankSetBusy(false);}
+}
+function bankSpendUpdate(user,expectedBalance,amount,id,entry) {
+  if(!user||getCardStatus(user)!=='active'||user.ledger?.[id]||(Number(user.balance)||0)!==expectedBalance)return;
+  const balance=Math.round((expectedBalance-amount)*100)/100;
+  if(bankPositiveAmount(amount)==null||!Number.isFinite(balance)||validateBalanceFloor(balance))return;
+  return {...user,balance,ledger:{...(user.ledger||{}),[id]:{...entry,type:'rp_spend',amount:-amount,balanceAfter:balance}}};
+}
+async function bankUseProfile(uid,profile,notice='') {
+  if(state.user?.uid!==uid)return;
+  state.profile=profile;
+  if(typeof bankUi!=='undefined')bankUi.notice=notice;
+  if(typeof updateBalanceUI==='function')updateBalanceUI();
+  renderBank();
+}
+async function cardRpSpend(event) {
+  event.preventDefault();
+  const amount=bankPositiveAmount(document.getElementById('rp-spend-amount')?.value),desc=(document.getElementById('rp-spend-desc')?.value||'').trim().slice(0,120),rawCategory=document.getElementById('rp-spend-cat')?.value,category=Object.hasOwn(RP_SPEND_CATEGORIES,rawCategory)?rawCategory:'outros';
+  if(amount==null)return showToast('Informe um valor positivo com até duas casas decimais.','error');
+  if(!desc)return showToast('Descreva o gasto.','error');
+  await bankRunAction(async uid=>{
+    const user=(await db.ref('users/'+uid).once('value')).val();
+    if(!user)throw Error('Conta não encontrada. Atualize a página.');
+    if(getCardStatus(user)!=='active')throw Error('Este cartão está bloqueado para novos gastos.');
+    const balance=Number(user.balance)||0,after=Math.round((balance-amount)*100)/100,error=validateBalanceFloor(after);
+    if(error){await bankUseProfile(uid,user);throw Error(error);}
+    const ok=await gsConfirm({title:'Confirmar gasto no cartão',body:'Confira o gasto de <strong>'+escapeHTML(getCardHolder(user))+'</strong>.',rows:[{label:'Categoria',value:RP_SPEND_CATEGORIES[category]},{label:'Descrição',value:desc},{label:'Valor do gasto',value:formatMoney(amount)},{label:'Saldo atual',value:formatMoney(balance)},{label:'Saldo após o gasto',value:formatMoney(after),warn:after<0}],confirmLabel:after<0?'Confirmar no crédito':'Confirmar gasto',danger:after<0});
+    if(!ok||state.user?.uid!==uid)return;
+    const id=generateId(),entry={label:desc,category,createdAt:Date.now()};
+    const result=await db.ref('users/'+uid).transaction(current=>bankSpendUpdate(current,balance,amount,id,entry),undefined,false);
+    if(!result.committed){const latest=(await db.ref('users/'+uid).once('value')).val();if(latest)await bankUseProfile(uid,latest);throw Error('O saldo ou o cartão mudou durante a revisão. Confira a prévia e tente novamente.');}
+    if(typeof bankUi!=='undefined'&&bankUi.uid===uid)bankUi.spend={category,amount:'',description:''};
+    await bankUseProfile(uid,result.snapshot.val(),'Gasto registrado: −'+formatMoney(amount)+' · saldo atualizado '+formatMoney(after)+'.');
+    pushAdminLog({type:'rp_spend',userId:uid,userName:user.name,amount,productName:desc});
+    showToast('Gasto registrado. Saldo atualizado: '+formatMoney(after));
   });
-  if (!okSpend) return;
-  const uid = state.user.uid;
-  const ledgerKey = generateId();
-
-  try {
-    await db.ref().update({
-      [`users/${uid}/balance`]: newBal,
-      [`users/${uid}/ledger/${ledgerKey}`]: {
-        type: 'rp_spend',
-        amount: -amount,
-        balanceAfter: newBal,
-        label: desc,
-        category,
-        createdAt: Date.now()
-      }
-    });
-    pushAdminLog({
-      type: 'rp_spend',
-      userId: uid,
-      userName: state.profile.name,
-      amount,
-      productName: desc
-    });
-    showToast(`Débito no cartão · ${desc} · −${formatMoney(amount)}`);
-  } catch (err) {
-    console.error(err);
-    showToast('Erro ao debitar.', 'error');
-  }
 }
-
-async function requestLoan(e) {
-  e.preventDefault();
-  if (!state.user || !state.profile) return;
-  if (getCardStatus(state.profile) === 'cancelled') {
-    showToast('Cartão cancelado. Crédito indisponível.', 'error');
-    return;
-  }
-  if (getLoans().some(l => l.status === 'pending' || l.status === 'active')) {
-    showToast('Já existe crédito pendente ou ativo.', 'error');
-    return;
-  }
-  const amount = parseFloat(document.getElementById('loan-amount')?.value);
-  const reason = (document.getElementById('loan-reason')?.value || '').trim().slice(0, 120);
-  if (isNaN(amount) || amount < 100) {
-    showToast('Valor mínimo: $ 100.', 'error');
-    return;
-  }
-  try {
-    const id = generateId();
-    await db.ref(`users/${state.user.uid}/loans/${id}`).set({
-      amount,
-      remaining: amount,
-      status: 'pending',
-      reason,
-      userName: state.profile.name,
-      userId: state.user.uid,
-      createdAt: Date.now()
-    });
-    await db.ref(`loanRequests/${id}`).set({
-      userId: state.user.uid,
-      userName: state.profile.name,
-      amount,
-      reason,
-      status: 'pending',
-      createdAt: Date.now()
-    });
-    pushAdminLog({ type: 'loan_request', userId: state.user.uid, userName: state.profile.name, amount });
-    showToast('Pedido enviado ao núcleo GS.');
-    renderBank();
-  } catch (err) {
-    console.error(err);
-    showToast('Erro ao solicitar.', 'error');
-  }
+async function requestLoan(event) {
+  event.preventDefault();
+  const amount=bankPositiveAmount(document.getElementById('loan-amount')?.value),reason=(document.getElementById('loan-reason')?.value||'').trim().slice(0,120);
+  if(amount==null||amount<100)return showToast('Valor mínimo para solicitar: $ 100.','error');
+  await bankRunAction(async uid=>{
+    const user=(await db.ref('users/'+uid).once('value')).val();
+    if(!user)throw Error('Conta não encontrada.');
+    if(getCardStatus(user)==='cancelled')throw Error('Cartão cancelado. Fale com a mesa para solicitar crédito.');
+    if(Object.values(user.loans||{}).some(l=>l.status==='pending'||l.status==='active'))throw Error('Já existe um empréstimo ativo ou um pedido em análise.');
+    const ok=await gsConfirm({title:'Enviar pedido de empréstimo',body:'O crédito depende da aprovação da mesa.',rows:[{label:'Valor solicitado',value:formatMoney(amount)},{label:'Motivo',value:reason||'Não informado'}],confirmLabel:'Enviar pedido'});
+    if(!ok||state.user?.uid!==uid)return;
+    const id=generateId(),now=Date.now(),request={userId:uid,userName:user.name||'',amount,reason,status:'pending',createdAt:now};
+    await db.ref().update({['users/'+uid+'/loans/'+id]:{...request,remaining:amount},['loanRequests/'+id]:request});
+    if(typeof bankUi!=='undefined'&&bankUi.uid===uid){bankUi.request={amount:'',reason:''};bankUi.loanRequestOpen=false;}
+    const latest=(await db.ref('users/'+uid).once('value')).val();if(latest)await bankUseProfile(uid,latest,'Pedido enviado à mesa. O valor será creditado após a aprovação.');
+    pushAdminLog({type:'loan_request',userId:uid,userName:user.name,amount});showToast('Pedido enviado à mesa.');
+  });
 }
-
 async function cancelLoanRequest(loanId) {
-  if (!state.user) return;
-  const okCancel = await gsConfirm({
-    title: 'Cancelar empréstimo',
-    body: 'Cancelar este pedido de empréstimo?',
-    confirmLabel: 'Cancelar pedido',
-    danger: true
+  await bankRunAction(async uid=>{
+    const user=(await db.ref('users/'+uid).once('value')).val(),loan=user?.loans?.[loanId];
+    if(!loan||loan.status!=='pending')throw Error('Este pedido não está mais em análise. Atualize sua conta.');
+    if(!(await gsConfirm({title:'Cancelar solicitação',body:'Cancelar o pedido de '+formatMoney(loan.amount)+'? O registro continuará no histórico.',confirmLabel:'Cancelar solicitação',danger:true}))||state.user?.uid!==uid)return;
+    await db.ref().update({['users/'+uid+'/loans/'+loanId+'/status']:'cancelled',['users/'+uid+'/loans/'+loanId+'/resolvedAt']:Date.now(),['loanRequests/'+loanId+'/status']:'cancelled'});
+    const latest=(await db.ref('users/'+uid).once('value')).val();if(latest)await bankUseProfile(uid,latest,'Solicitação cancelada. O histórico foi preservado.');showToast('Solicitação cancelada.');
   });
-  if (!okCancel) return;
-  try {
-    await db.ref(`users/${state.user.uid}/loans/${loanId}`).update({ status: 'cancelled', resolvedAt: Date.now() });
-    await db.ref(`loanRequests/${loanId}`).update({ status: 'cancelled' });
-    showToast('Pedido cancelado.');
-    renderBank();
-  } catch (e) {
-    console.error(e);
-    showToast('Erro ao cancelar.', 'error');
-  }
 }
-
+function bankLoanPaymentUpdates(uid,loanId,user,amount,entryId,now=Date.now()) {
+  const loan=user?.loans?.[loanId],debt=bankLoanRemaining(loan),balance=Number(user?.balance)||0;
+  if(!loan||loan.status!=='active'||bankPositiveAmount(amount)==null||amount>debt)throw Error('Confira o valor e a dívida atual.');
+  const after=Math.round((balance-amount)*100)/100,error=validateBalanceFloor(after);if(error)throw Error(error);
+  const remaining=Math.round((debt-amount)*100)/100,paid=remaining<=0;
+  const updates={['users/'+uid+'/balance']:after,['users/'+uid+'/loans/'+loanId+'/remaining']:remaining,['users/'+uid+'/ledger/'+entryId]:{type:'loan_payment',amount:-amount,balanceAfter:after,label:paid?'Empréstimo quitado':'Pagamento parcial de empréstimo',refId:loanId,createdAt:now}};
+  if(paid){updates['users/'+uid+'/loans/'+loanId+'/status']='paid';updates['users/'+uid+'/loans/'+loanId+'/paidAt']=now;updates['loanRequests/'+loanId+'/status']='paid';}
+  return {updates,after,remaining,paid};
+}
 async function payLoan(loanId) {
-  if (!state.user || !state.profile) return;
-  const loan = getLoans().find(l => l.id === loanId);
-  if (!loan || loan.status !== 'active') return;
-  const raw = document.getElementById('loan-pay-amount')?.value;
-  const amount = parseFloat(raw);
-  const debt = Number(loan.remaining || loan.amount) || 0;
-  const bal = Number(state.profile.balance) || 0;
-  if (isNaN(amount) || amount <= 0) {
-    showToast('Valor inválido.', 'error');
-    return;
-  }
-  if (amount > debt) {
-    showToast('Valor maior que a dívida.', 'error');
-    return;
-  }
-  const newBal = bal - amount;
-  const floorErrPay = validateBalanceFloor(newBal);
-  if (floorErrPay) {
-    const room = bal - BALANCE_FLOOR;
-    showToast(
-      room <= 0
-        ? `Limite de crédito esgotado (−${balanceFloorLabel()}).`
-        : `Acima do limite. Você pode pagar até ${formatMoney(room)}.`,
-      'error'
-    );
-    return;
-  }
-  const newDebt = debt - amount;
-  const paid = newDebt <= 0.001;
-  try {
-    const updates = {};
-    updates[`users/${state.user.uid}/balance`] = newBal;
-    updates[`users/${state.user.uid}/loans/${loanId}/remaining`] = Math.max(0, newDebt);
-    if (paid) {
-      updates[`users/${state.user.uid}/loans/${loanId}/status`] = 'paid';
-      updates[`users/${state.user.uid}/loans/${loanId}/paidAt`] = Date.now();
-      updates[`loanRequests/${loanId}/status`] = 'paid';
-    }
-    await db.ref().update(updates);
-    await pushLedgerEntry(state.user.uid, {
-      type: 'loan_payment',
-      amount: -amount,
-      balanceAfter: newBal,
-      label: paid ? 'Empréstimo quitado' : `Pagamento parcial de empréstimo (−${formatMoney(amount)})`,
-      refId: loanId
-    });
-    showToast(paid ? 'Empréstimo quitado.' : `Pago ${formatMoney(amount)}. Restam ${formatMoney(newDebt)}.`);
-  } catch (e) {
-    console.error(e);
-    showToast('Erro no pagamento.', 'error');
-  }
+  const amount=bankPositiveAmount(document.getElementById('loan-pay-amount')?.value);
+  if(amount==null)return showToast('Informe um valor positivo para pagar.','error');
+  await bankRunAction(async uid=>{
+    const user=(await db.ref('users/'+uid).once('value')).val(),id=generateId();
+    const payment=bankLoanPaymentUpdates(uid,loanId,user,amount,id);
+    const ok=await gsConfirm({title:payment.paid?'Quitar empréstimo':'Confirmar pagamento',body:'O valor será descontado do seu saldo.',rows:[{label:'Pagamento',value:formatMoney(amount)},{label:'Saldo após pagar',value:formatMoney(payment.after),warn:payment.after<0},{label:'Dívida restante',value:formatMoney(payment.remaining)}],confirmLabel:payment.paid?'Confirmar quitação':'Confirmar pagamento',danger:payment.after<0});
+    if(!ok||state.user?.uid!==uid)return;
+    const fresh=(await db.ref('users/'+uid).once('value')).val();
+    if(!fresh||fresh.loans?.[loanId]?.status!=='active'||(Number(fresh.balance)||0)!==(Number(user.balance)||0)||bankLoanRemaining(fresh.loans[loanId])!==bankLoanRemaining(user.loans[loanId])){if(fresh)await bankUseProfile(uid,fresh);throw Error('Seu saldo ou a dívida mudou. Revise o pagamento novamente.');}
+    // Saldo, dívida, histórico e espelho administrativo são gravados juntos.
+    await db.ref().update(payment.updates);
+    if(typeof bankUi!=='undefined'&&bankUi.uid===uid)bankUi.pay.amount='';
+    const latest=(await db.ref('users/'+uid).once('value')).val();if(latest)await bankUseProfile(uid,latest,payment.paid?'Empréstimo quitado. Seu saldo foi atualizado.':'Pagamento registrado. Restam '+formatMoney(payment.remaining)+'.');
+    showToast(payment.paid?'Empréstimo quitado.':'Pagamento registrado. Restam '+formatMoney(payment.remaining)+'.');
+  });
 }
 
 function renderAdminLoans() {
